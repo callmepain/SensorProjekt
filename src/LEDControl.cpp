@@ -1,8 +1,14 @@
 #include "LEDControl.h"
 #include "ConfigManager.h"
+#include "SensorHandler.h"
+#include "ButtonConfig.h"
+#include "TelnetLogger.h"
+
+extern SensorHandler sensorHandler;
+extern TelnetLogger logger;
 
 LEDControl::LEDControl(Adafruit_NeoPixel& strip)
-    : strip(strip), transitionSpeed(0.1f), currentColor(0), currentBrightness(255) {
+    : strip(strip), transitionSpeed(1.0f / 60.0f), currentColor(0), currentBrightness(255) {
     ledMutex = xSemaphoreCreateMutex(); // Mutex initialisieren
 
     // Config laden
@@ -21,6 +27,15 @@ void LEDControl::init() {
     Serial.println("LEDControl initialized with Config:");
     Serial.println("Brightness: " + String(currentBrightness));
     Serial.println("State: " + String(lightState ? "ON" : "OFF"));
+}
+
+void LEDControl::startTransition(uint32_t targetColor) {
+    if (currentTransition.active) return; // Verhindere, dass ein neuer Übergang startet, während einer aktiv ist
+
+    currentTransition.startColor = currentColor;
+    currentTransition.endColor = targetColor;
+    currentTransition.progress = 0.0f;
+    currentTransition.active = true;
 }
 
 // Adjust brightness based on potentiometer value
@@ -44,6 +59,20 @@ int LEDControl::readPotValueWithTolerance(int currentValue, int tolerance) {
     return lastPotValue;
 }
 
+void LEDControl::runTask() {
+    const int frameDelay = 16; // ~30 FPS
+    while (true) {
+        if (lightState) {
+            float temp = sensorHandler.getTemperature();
+            update(temp); // currentTemperature als globaler Wert oder über Setter
+            int potValue = analogRead(POT_PIN);
+            //adjustBrightness(122);
+            adjustBrightness(readPotValueWithTolerance(potValue));
+        }
+        vTaskDelay(frameDelay / portTICK_PERIOD_MS);
+    }
+}
+
 // Update LEDs
 void LEDControl::update(float temperature) {
     if (!lightState) return;
@@ -51,46 +80,33 @@ void LEDControl::update(float temperature) {
     if (xSemaphoreTake(ledMutex, portMAX_DELAY)) {
         uint32_t targetColor = getColorForTemperature(temperature);
 
-        // Ziel-Farbe in RGB-Werte aufteilen
-        uint8_t targetRed = (targetColor >> 16) & 0xFF;
-        uint8_t targetGreen = (targetColor >> 8) & 0xFF;
-        uint8_t targetBlue = targetColor & 0xFF;
-
-        // Aktuelle Farbe in RGB-Werte aufteilen
-        uint8_t currentRed = (currentColor >> 16) & 0xFF;
-        uint8_t currentGreen = (currentColor >> 8) & 0xFF;
-        uint8_t currentBlue = currentColor & 0xFF;
-
-        // Easing-Faktor berechnen
-        static float transitionProgress = 0.0f;
-        transitionProgress += transitionSpeed;
-        if (transitionProgress > 1.0f) transitionProgress = 1.0f;
-
-        float easedProgress = easeInOutQuad(transitionProgress);
-
-        // Farbwerte mit Easing interpolieren
-        uint8_t newRed = currentRed + (targetRed - currentRed) * easedProgress;
-        uint8_t newGreen = currentGreen + (targetGreen - currentGreen) * easedProgress;
-        uint8_t newBlue = currentBlue + (targetBlue - currentBlue) * easedProgress;
-
-        // Neue Farbe setzen
-        currentColor = strip.Color(newRed, newGreen, newBlue);
-
-        // LEDs aktualisieren
-        for (int i = 0; i < strip.numPixels(); i++) {
-            strip.setPixelColor(i, currentColor);
+        if (!currentTransition.active || currentTransition.endColor != targetColor) {
+            startTransition(targetColor);
         }
-        strip.show();
 
-        // Zurücksetzen des Übergangs bei Abschluss
-        if (transitionProgress >= 1.0f) {
-            transitionProgress = 0.0f;
+        if (currentTransition.active) {
+            currentTransition.progress += transitionSpeed;
+            if (currentTransition.progress >= 1.0f) {
+                currentTransition.progress = 1.0f;
+                currentTransition.active = false;
+            }
+
+            float easedProgress = easeInOutQuad(currentTransition.progress);
+            uint32_t newColor = interpolateColor(currentTransition.startColor, currentTransition.endColor, easedProgress);
+
+            if (newColor != currentColor) { // Update nur bei Änderungen
+                currentColor = newColor;
+
+                for (int i = 0; i < strip.numPixels(); i++) {
+                    strip.setPixelColor(i, currentColor);
+                }
+                strip.show();
+            }
         }
 
         xSemaphoreGive(ledMutex);
     }
 }
-
 
 void LEDControl::setProgress(int progress, int totalSteps) {
     if (lightState && xSemaphoreTake(ledMutex, portMAX_DELAY)) {
@@ -172,23 +188,15 @@ bool LEDControl::isOn() const {
 
 // Map temperature to color
 uint32_t LEDControl::getColorForTemperature(float temp) {
-    if (temp < 22.0) {
-        return strip.Color(0, 0, 255); // Blue
-    } else if (temp < 25.0) {
-        float ratio = (temp - 22.0) / (25.0 - 22.0);
-        uint8_t r = ratio * 0;
-        uint8_t g = ratio * 255;
-        uint8_t b = 255 - ratio * 255;
-        return strip.Color(r, g, b); // Blue to Green
-    } else if (temp < 28.0) {
-        float ratio = (temp - 25.0) / (28.0 - 25.0);
-        uint8_t r = ratio * 255;
-        uint8_t g = 255 - ratio * 255;
-        uint8_t b = 0;
-        return strip.Color(r, g, b); // Green to Yellow
-    } else {
-        return strip.Color(255, 0, 0); // Red
-    }
+    // Temperaturbereich auf 18°C - 28°C beschränken
+    float ratio = constrain((temp - 18.0) / (28.0 - 18.0), 0.0, 1.0);
+
+    // Farben interpolieren: Magenta (#FF00FF) → Dunkelblau (#000088)
+    uint8_t r = (1.0 - ratio) * 255;   // Rot nimmt ab
+    uint8_t g = 0;                    // Grün bleibt konstant
+    uint8_t b = ratio * 136 + (1.0 - ratio) * 255; // Blau nimmt zu (136 bis 255)
+
+    return strip.Color(r, g, b);
 }
 
 // Interpolate between two colors
@@ -201,9 +209,9 @@ uint32_t LEDControl::interpolateColor(uint32_t color1, uint32_t color2, float ra
     uint8_t g2 = (color2 >> 8) & 0xFF;
     uint8_t b2 = color2 & 0xFF;
 
-    uint8_t r = r1 + ratio * (r2 - r1);
-    uint8_t g = g1 + ratio * (g2 - g1);
-    uint8_t b = b1 + ratio * (b2 - b1);
+    uint8_t r = round(r1 + (r2 - r1) * ratio);
+    uint8_t g = round(g1 + (g2 - g1) * ratio);
+    uint8_t b = round(b1 + (b2 - b1) * ratio);
 
     return (r << 16) | (g << 8) | b;
 }

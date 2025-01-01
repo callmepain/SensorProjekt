@@ -590,6 +590,14 @@ void initTasks() {
         &menuTaskHandle,  // Task-Handle
         1                 // Core (optional)
     );
+    xTaskCreate(
+        [](void* param) { static_cast<LEDControl*>(param)->runTask(); },
+        "LED Task",
+        4096,
+        &ledControl, // Übergabe des Objekts
+        1,
+        NULL
+    );
 }
 
 void setup() {
@@ -633,7 +641,10 @@ void loop() {
     }
 
     handleTelnetConnection();
-    handleSensorAndLEDControl();
+    //handleSensorAndLEDControl();
+    sensorHandler.updateSensors();
+    totalEnergy_ina1 = ina1.updateEnergy();
+    totalEnergy_ina2 = ina2.updateEnergy();
     CheckVoltage();
     // Kurzes Debouncing
     delay(100);

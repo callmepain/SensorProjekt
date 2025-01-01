@@ -440,6 +440,15 @@
                             </td>
                         </tr>
                         <tr>
+                            <td>Rest Laufzeit:</td>
+                            <td>
+                                <span id="batterytime">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
                             <td>Batterie Ladezustand</td>
                             <td>
                                 <div class="battery-container">
@@ -550,6 +559,7 @@
                 updateValue('batteryVoltage', data.battery_spannung + ' V');
                 updateValue('batteryCurrent', data.battery_stromstärke_mA + ' mA');
                 updateValue('batteryPower', data.battery_leistung + ' mW');
+                updateValue('batterytime', data.remaining_time + ' h');
                 updateBatteryState(data.battery_prozent);
 
             } catch (error) {
