@@ -18,7 +18,6 @@
 #include "TelnetLogger.h"
 
 #define RELAIS_PIN 26
-
 Battery battery(13600, "/battery_data.json");
 TaskHandle_t menuTaskHandle;
 WiFiServer telnetServer(23); // Telnet-Server auf Port 23
