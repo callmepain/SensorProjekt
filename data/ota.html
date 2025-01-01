@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTA Update</title>
+    <style>
+        body {
+            overflow-y: scroll;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #121212;
+            color: #E0E0E0;
+            text-align: center;
+            padding: 20px;
+        }
+    
+        h1 {
+            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            -webkit-background-clip: text;
+            color: transparent; /* Text-Farbverlauf */
+        }
+
+        form {
+            background: #1E1E1E;
+            border: 2px solid #FF00FF;
+            border-radius: 10px;
+            padding: 20px;
+            display: inline-block;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+        }
+
+        input[type="file"] {
+            margin-bottom: 15px;
+            padding: 10px;
+            color: #FFFFFF;
+            background-color: #2A2A2A;
+            border: 1px solid #FF00FF;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            color: #FFFFFF;
+            box-shadow: 0 4px 10px rgba(255, 0, 255, 0.5);
+        }
+
+        input[type="submit"] {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            color: #FFFFFF;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+
+        input[type="submit"]:hover {
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #FF00FF;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Webkit-basiertes Styling für Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1E1E1E;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            border-radius: 10px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF);
+        }
+    </style>
+</head>
+<body>
+    <div id="menu-placeholder"></div>
+    <h1>OTA Update</h1>
+    <form method="POST" action="/ota" enctype="multipart/form-data" onsubmit="showLoader()">
+        <input type="file" name="firmware" required>
+        <br>
+        <input type="submit" value="Update Firmware">
+    </form>
+    <div id="loader" class="loader"></div>
+    <p id="message" style="margin-top: 20px; font-size: 1rem;"></p>
+</body>
+</html>
+<script>
+    // Menü laden
+    fetch('menu.html')
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('menu-placeholder').innerHTML = data;
+            document.querySelectorAll('.menu a').forEach(link => {
+                if (link.href === window.location.href) {
+                    link.classList.add('active');
+                }
+            });
+        })
+        .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+
+    function showLoader() {
+        document.querySelector("form").style.display = "none";
+        document.getElementById("loader").style.display = "block";
+        document.getElementById("message").textContent = "Bitte warten, das Update wird durchgeführt...";
+    }
+</script>

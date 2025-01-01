@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datenvisualisierung</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #121212; /* Dark Mode Hintergrund */
+            color: #ffffff; /* Weiße Schrift */
+        }
+
+        h1 {
+            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        h2 {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+
+        .section {
+            margin: 20px;
+        }
+
+        .section h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(700px, 1fr)); /* Mindestbreite von 700px pro Spalte */
+            gap: 20px; /* Abstand zwischen den Charts */
+            padding: 20px;
+        }
+
+        .chart-container {
+            min-width: 700px; /* Mindestbreite für die Chart-Container */
+            min-height: 400px; /* Mindesthöhe für die Chart-Container */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 800px; /* Maximalbreite für die Charts */
+            height: auto; /* Automatische Höhe */
+        }
+
+        /* Webkit-basiertes Styling für Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px; /* Breite der Scrollbar */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1E1E1E; /* Hintergrund der Scrollbar-Leiste */
+            border-radius: 10px; /* Abgerundete Ecken */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf für die Scrollbar */
+            border-radius: 10px; /* Abgerundete Ecken */
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); /* Subtiler Schatten für mehr Tiefe */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF); /* Umgekehrter Farbverlauf beim Hover */
+        }
+
+        select {
+            font-size: 18px;
+            padding: 10px;
+            border: 2px solid #FF00FF;
+            background: linear-gradient(90deg, #2A2A2A, #1E1E1E);
+            color: #FFFFFF;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: 0 4px 10px rgba(255, 0, 255, 0.4); /* Standard-Schatten */
+        }
+
+        select:hover {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Hover-Farbverlauf */
+            color: #FFFFFF;
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.6); /* Verstärkter Glüheffekt */
+        }
+
+        select:focus {
+            outline: 2px solid #FF00FF;
+            background: linear-gradient(90deg, #8800FF, #FF00FF); /* Fokus-Farbverlauf */
+            box-shadow: 0 4px 20px rgba(255, 0, 255, 0.8); /* Fokus-Schatten */
+        }
+
+        option {
+            background: #1E1E1E; /* Hintergrund der Dropdown-Liste */
+            color: #FFFFFF; /* Schriftfarbe */
+            padding: 10px;
+        }
+
+        option:hover {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Hover für Optionen */
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu-placeholder"></div>
+    <h1>Datenvisualisierung</h1>
+
+    <!-- Dropdown-Menü für Limit-Auswahl -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <label for="data-limit" style="font-size: 18px; margin-right: 10px;">Anzahl der Datenpunkte:</label>
+        <select id="data-limit" style="
+            font-size: 18px; 
+            padding: 10px; 
+            border: 2px solid #FF00FF; 
+            background: linear-gradient(90deg, #2A2A2A, #1E1E1E); 
+            color: #FFFFFF; 
+            border-radius: 5px; 
+            transition: all 0.3s ease;
+            outline: none;
+        ">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="24h">24 Stunden</option>
+            <option value="3d">3 Tage</option>
+            <option value="7d">7 Tage</option>
+        </select>
+    </div>
+
+    <!-- Spannungsdaten Sektion -->
+    <div class="section">
+        <h2>Solarpanel</h2>
+        <div class="grid-container">
+            <div class="chart-container">
+                <h3>Voltage (V)</h3>
+                <canvas id="voltageChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Current (mA)</h3>
+                <canvas id="currentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Power (mW)</h3>
+                <canvas id="powerChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Lux</h3>
+                <canvas id="luxChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batteriedaten Sektion -->
+    <div class="section">
+        <h2>Batterie</h2>
+        <div class="grid-container">
+            <div class="chart-container">
+                <h3>Battery Voltage (V)</h3>
+                <canvas id="batteryVoltageChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Battery Current (mA)</h3>
+                <canvas id="batteryCurrentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Battery Power (mW)</h3>
+                <canvas id="batteryPowerChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Battery Percentage (%)</h3>
+                <canvas id="batteryPercentageChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sensor-Daten Sektion -->
+    <div class="section">
+        <h2>Sensoren</h2>
+        <div class="grid-container">
+            <div class="chart-container">
+                <h3>Temperatur</h3>
+                <canvas id="temperatureChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Luftfeuchtigkeit</h3>
+                <canvas id="humidityChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Druck</h3>
+                <canvas id="pressureChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Menü laden
+        fetch('menu.html')
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('menu-placeholder').innerHTML = data;
+            
+            // Hier erst NACH dem Einfügen den aktiven Link markieren:
+            document.querySelectorAll('.menu a').forEach(link => {
+                if (link.href === window.location.href) {
+                    link.classList.add('active');
+                }
+            });
+        })
+        .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+
+        // Dark Mode Optionen
+        const darkModeOptions = {
+            plugins: {
+                legend: {
+                    labels: { color: '#ffffff' } // Weiße Legendentexte
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#ffffff' }, // Weiße X-Achsentexte
+                    title: { display: true, text: 'Timestamp', color: '#ffffff' }
+                },
+                y: {
+                    ticks: { color: '#ffffff' }, // Weiße Y-Achsentexte
+                    title: { display: true, text: '', color: '#ffffff' } // Y-Achsentitel wird dynamisch gesetzt
+                }
+            }
+        };
+
+        // Funktion, um Daten von der API abzurufen
+        async function fetchData(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error("Failed to fetch data:", error);
+                return [];
+            }
+        }
+
+        let charts = {}; // Speichert aktive Charts
+        let dataLimit = 50; // Standardlimit
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const limitDropdown = document.getElementById('data-limit');
+            limitDropdown.addEventListener('change', (event) => {
+                const value = event.target.value;
+
+                // Zeitspannen in Anzahl der Datenpunkte umrechnen
+                if (value === "24h") {
+                    dataLimit = 288; // 24 Stunden * 60 Minuten / 5 Minuten = 288
+                } else if (value === "3d") {
+                    dataLimit = 3 * 288; // 3 Tage = 3 * 288
+                } else if (value === "7d") {
+                    dataLimit = 7 * 288; // 7 Tage = 7 * 288
+                } else {
+                    dataLimit = parseInt(value); // Standard-Datenpunkte
+                }
+
+                renderCharts(); // Lade die Diagramme neu
+            });
+        });
+
+        async function renderCharts() {
+            console.log("Aktuelles Limit:", dataLimit);
+            // Voltage-Daten abrufen
+            const voltageData = (await fetchData(`http://192.168.2.127/cgi-bin/api_handler2.py?action=voltage_data&limit=${dataLimit}`)).data;
+            if (!voltageData || !Array.isArray(voltageData)) {
+                console.error("Voltage data is invalid or empty.");
+                return;
+            }
+            const voltageLabels = voltageData.map(d => d.timestamp).reverse();
+            const voltageValues = voltageData.map(d => d.voltage).reverse();
+            const currentValues = voltageData.map(d => d.current_mA).reverse();
+            const powerValues = voltageData.map(d => d.power).reverse();
+            const luxValues = voltageData.map(d => d.lux).reverse();
+
+            // Voltage Chart
+            if (charts['voltageChart']) charts['voltageChart'].destroy();
+            charts['voltageChart'] = new Chart(document.getElementById('voltageChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: voltageLabels,
+                    datasets: [{ label: 'Voltage (V)', data: voltageValues, borderColor: 'red', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Voltage (V)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Current Chart
+            if (charts['currentChart']) charts['currentChart'].destroy();
+            charts['currentChart'] = new Chart(document.getElementById('currentChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: voltageLabels,
+                    datasets: [{ label: 'Current (mA)', data: currentValues, borderColor: 'blue', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Current (mA)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Power Chart
+            if (charts['powerChart']) charts['powerChart'].destroy();
+            charts['powerChart'] = new Chart(document.getElementById('powerChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: voltageLabels,
+                    datasets: [{ label: 'Power (mW)', data: powerValues, borderColor: 'green', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Power (mW)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Lux Chart
+            if (charts['luxChart']) charts['luxChart'].destroy();
+            charts['luxChart'] = new Chart(document.getElementById('luxChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: voltageLabels,
+                    datasets: [{ label: 'Lux', data: luxValues, borderColor: 'orange', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Lux', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Battery-Daten abrufen
+            const batteryData = (await fetchData(`http://192.168.2.127/cgi-bin/api_handler2.py?action=battery_data&limit=${dataLimit}`)).data;
+            if (!batteryData || !Array.isArray(batteryData)) {
+                console.error("Voltage data is invalid or empty.");
+                return;
+            }
+            const batteryLabels = batteryData.map(d => d.timestamp).reverse();
+            const batteryVoltage = batteryData.map(d => d.battery_voltage).reverse();
+            const batteryCurrent = batteryData.map(d => d.battery_current_mA).reverse();
+            const batteryPower = batteryData.map(d => d.battery_power).reverse();
+            const batteryPercentage = batteryData.map(d => d.battery_percentage).reverse();
+
+            // Battery Voltage Chart
+            if (charts['batteryVoltageChart']) charts['batteryVoltageChart'].destroy();
+            charts['batteryVoltageChart'] = new Chart(document.getElementById('batteryVoltageChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: batteryLabels,
+                    datasets: [{ label: 'Battery Voltage (V)', data: batteryVoltage, borderColor: 'red', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Battery Voltage (V)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Battery Current Chart
+            if (charts['batteryCurrentChart']) charts['batteryCurrentChart'].destroy();
+            charts['batteryCurrentChart'] = new Chart(document.getElementById('batteryCurrentChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: batteryLabels,
+                    datasets: [{ label: 'Battery Current (mA)', data: batteryCurrent, borderColor: 'blue', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Battery Current (mA)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Battery Power Chart
+            if (charts['batteryPowerChart']) charts['batteryPowerChart'].destroy();
+            charts['batteryPowerChart'] = new Chart(document.getElementById('batteryPowerChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: batteryLabels,
+                    datasets: [{ label: 'Battery Power (mW)', data: batteryPower, borderColor: 'green', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Battery Power (mW)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Battery Percentage Chart
+            if (charts['batteryPercentageChart']) charts['batteryPercentageChart'].destroy();
+            charts['batteryPercentageChart'] = new Chart(document.getElementById('batteryPercentageChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: batteryLabels,
+                    datasets: [{ label: 'Battery Percentage (%)', data: batteryPercentage, borderColor: 'purple', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Battery Percentage (%)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Sensor-Daten abrufen
+            const sensorData = (await fetchData(`http://192.168.2.127/cgi-bin/api_handler2.py?action=sensor_data&limit=${dataLimit}`)).data;
+            if (!sensorData || !Array.isArray(sensorData)) {
+                console.error("Voltage data is invalid or empty.");
+                return;
+            }
+            const sensorLabels = sensorData.map(d => d.timestamp).reverse();
+            const temperatureValues = sensorData.map(d => d.temperature).reverse();
+            const humidityValues = sensorData.map(d => d.humidity).reverse();
+            const pressureValues = sensorData.map(d => d.pressure).reverse();
+
+            // Temperatur Chart
+            if (charts['temperatureChart']) charts['temperatureChart'].destroy();
+            charts['temperatureChart'] = new Chart(document.getElementById('temperatureChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: sensorLabels,
+                    datasets: [{ label: 'Temperature (°C)', data: temperatureValues, borderColor: 'orange', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Temperature (°C)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Luftfeuchtigkeit Chart
+            if (charts['humidityChart']) charts['humidityChart'].destroy();
+            charts['humidityChart'] = new Chart(document.getElementById('humidityChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: sensorLabels,
+                    datasets: [{ label: 'Humidity (%)', data: humidityValues, borderColor: 'blue', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Humidity (%)', color: '#ffffff' } }
+                    }
+                }
+            });
+
+            // Druck Chart
+            if (charts['pressureChart']) charts['pressureChart'].destroy();
+            charts['pressureChart'] = new Chart(document.getElementById('pressureChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: sensorLabels,
+                    datasets: [{ label: 'Pressure (hPa)', data: pressureValues, borderColor: 'green', fill: false }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: darkModeOptions.plugins,
+                    scales: {
+                        x: darkModeOptions.scales.x,
+                        y: { ...darkModeOptions.scales.y, title: { display: true, text: 'Pressure (hPa)', color: '#ffffff' } }
+                    }
+                }
+            });
+        }
+
+        renderCharts(); // Initial aufrufen
+
+        // Setze ein Intervall, um die Charts alle 5 Minuten zu aktualisieren
+        setInterval(() => {
+            renderCharts();
+        }, 300000); // 300.000 Millisekunden = 5 Minuten
+    </script>
+</body>
+</html>

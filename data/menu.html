@@ -1,0 +1,71 @@
+<div class="menu">
+    <a href="index.html">Startseite</a>
+    <a href="charts.html">Charts</a>
+    <a href="files.html">Dateimanager</a>
+    <a href="config.html">Config</a>
+    <a href="upload.html">Datei hochladen</a>
+    <a href="ota.html">Firmware Update</a>
+</div>
+
+<style>
+    .menu {
+        position: fixed; /* Fixiert das Menü oben */
+        top: 0; /* Oben auf der Seite */
+        left: 0; /* Ganz links */
+        width: 100%; /* Breite des Menüs auf die gesamte Seite */
+        background-color: #1E1E1E; /* Hintergrundfarbe */
+        padding: 10px;
+        text-align: center;
+        display: flex; /* Flexbox für horizontale Anordnung */
+        justify-content: center;
+        gap: 10px; /* Abstand zwischen den Links */
+        z-index: 1000; /* Stellt sicher, dass das Menü über anderen Elementen liegt */
+    }
+
+    body {
+        padding-top: 60px; /* Abstand, damit der Inhalt nicht vom Menü überlappt wird */
+    }
+
+    .menu a {
+        text-decoration: none;
+        color: #FFFFFF;
+        font-weight: bold; /* Fettschrift */
+        font-size: 18px;
+        padding: 8px 15px; /* Mehr Platz um den Text */
+        background-color: #2A2A2A; /* Hintergrundfarbe */
+        border: 1px solid #FF00FF; /* Rahmen für Trennung */
+        transition: all 0.3s ease; /* Weiche Übergänge */
+        text-align: center;
+        display: inline-block;
+    }
+
+    .menu a:hover {
+        background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf beim Hover */
+        color: #FFFFFF; /* Schrift bleibt hell */
+        font-weight: bold; /* Fettschrift */
+        text-shadow: 0 0 5px #FF00FF; /* Leuchtender Text beim Hover */
+        box-shadow: 0 4px 15px rgba(255, 0, 255, 0.5); /* Glüheffekt */
+        text-shadow: 
+            0 0 5px #FF00FF, /* Leuchtender Effekt */
+            -1px -1px 0 #000, /* Schwarze Outline oben links */
+            1px -1px 0 #000, /* Schwarze Outline oben rechts */
+            -1px 1px 0 #000, /* Schwarze Outline unten links */
+            1px 1px 0 #000; /* Schwarze Outline unten rechts */
+    }
+
+    .menu a.active {
+        background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf für den Hintergrund */
+        color: #FFFFFF; /* Helle Schriftfarbe */
+        font-weight: bold; /* Fettschrift */
+        text-shadow: 
+            0 0 5px #FF00FF, /* Leuchtender Effekt */
+            -1px -1px 0 #000, /* Schwarze Outline oben links */
+            1px -1px 0 #000, /* Schwarze Outline oben rechts */
+            -1px 1px 0 #000, /* Schwarze Outline unten links */
+            1px 1px 0 #000; /* Schwarze Outline unten rechts */
+        box-shadow: 0 4px 15px rgba(255, 0, 255, 0.5); /* Glüheffekt */
+        text-decoration: none; /* Keine Unterstreichung */
+        border: 2px solid #FF00FF; /* Stärkerer Rahmen */
+        transition: all 0.3s ease; /* Sanfter Übergang beim Wechsel */
+    }
+</style>

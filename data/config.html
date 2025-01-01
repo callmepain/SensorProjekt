@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 Config Page</title>
+    <style>
+        body {
+            overflow-y: scroll;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+
+        h1 {
+            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .form-container {
+            display: flex;
+            flex-wrap: wrap; /* Blöcke umbrechen */
+            gap: 20px;
+            width: 70%; /* Allgemeine Breite */
+            margin: 20px auto;
+            background-color: #1E1E1E;
+            border: 2px solid #FF00FF;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+        }
+
+        .form-section {
+            flex: 1 1 calc(33% - 20px); /* Maximal 3 Blöcke nebeneinander */
+            min-width: 280px; /* Mindestbreite */
+            background-color: #2A2A2A;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #FF00FF;
+            box-shadow: 0 2px 10px rgba(255, 0, 255, 0.2);
+        }
+
+        .form-section h3 {
+            color: #FFFFFF;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #FF00FF;
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"], input[type="password"], select {
+            width: 100%; /* Gleiche Breite für alle Eingabeelemente */
+            padding: 10px;
+            border: 1px solid #FF00FF;
+            border-radius: 10px;
+            background-color: #1E1E1E;
+            color: #E0E0E0;
+            box-sizing: border-box; /* Einschließt Padding in die Breite */
+        }
+
+        button {
+            display: block; /* Block-Level für zentrierte Position */
+            margin: 20px auto; /* Zentrierung */
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            color: #FFFFFF;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+
+        button:hover {
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        .success-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, #4CAF50, #2E7D32); /* Grüner Farbverlauf */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 15px; /* Stärkere Rundungen */
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3); /* Glüheffekt in Grün */
+            display: none;
+            z-index: 1000;
+            animation: fadeInOut 10s ease-in-out forwards;
+            font-weight: bold; /* Text betonen */
+            text-align: center; /* Zentrierter Text */
+        }
+    
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Webkit-basiertes Styling für Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px; /* Breite der Scrollbar */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1E1E1E; /* Hintergrund der Scrollbar-Leiste */
+            border-radius: 10px; /* Abgerundete Ecken */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf für die Scrollbar */
+            border-radius: 10px; /* Abgerundete Ecken */
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); /* Subtiler Schatten für mehr Tiefe */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF); /* Umgekehrter Farbverlauf beim Hover */
+        }
+    </style>
+</head>
+<body>
+    <div id="menu-placeholder"></div>
+    <h1>ESP32 Config Page</h1>
+    <div id="success-message" class="success-message">
+        Datei erfolgreich gespeichert!
+    </div>
+    <div class="form-container">
+        <!-- Allgemeine Einstellungen -->
+        <div class="form-section">
+            <h3>Allgemeine Einstellungen</h3>
+            <div class="form-group">
+                <label for="device-name">Gerätename:</label>
+                <input type="text" id="device-name" name="device_name" placeholder="Gerätename eingeben">
+            </div>
+            <div class="form-group">
+                <label for="wifi-ssid">WLAN SSID:</label>
+                <input type="text" id="wifi-ssid" name="wifi_ssid" placeholder="WLAN SSID eingeben">
+            </div>
+            <div class="form-group">
+                <label for="wifi-password">WLAN Passwort:</label>
+                <input type="password" id="wifi-password" name="wifi_password" placeholder="WLAN Passwort eingeben">
+            </div>
+        </div>
+        <!-- Netzwerk Konfiguration -->
+        <div class="form-section">
+            <h3>Netzwerk Konfiguration</h3>
+            <div class="form-group">
+                <label for="ip-address">IP-Adresse:</label>
+                <input type="text" id="ip-address" name="ip_address" placeholder="IP-Adresse (z.B. 192.168.1.100)">
+            </div>
+            <div class="form-group">
+                <label for="subnet-mask">Subnetzmaske:</label>
+                <input type="text" id="subnet-mask" name="subnet_mask" placeholder="Subnetzmaske (z.B. 255.255.255.0)">
+            </div>
+            <div class="form-group">
+                <label for="gateway">Gateway:</label>
+                <input type="text" id="gateway" name="gateway" placeholder="Gateway (z.B. 192.168.1.1)">
+            </div>
+            <div class="form-group">
+                <label for="primary-dns">Primärer DNS:</label>
+                <input type="text" id="primary-dns" name="primary_dns" placeholder="Primärer DNS (z.B. 8.8.8.8)">
+            </div>
+            <div class="form-group">
+                <label for="secondary-dns">Sekundärer DNS:</label>
+                <input type="text" id="secondary-dns" name="secondary_dns" placeholder="Sekundärer DNS (z.B. 8.8.4.4)">
+            </div>
+        </div>
+        <!-- TX Power -->
+        <div class="form-section">
+            <h3>TX-Leistung</h3>
+            <div class="form-group">
+                <label for="tx-power">TX-Leistung:</label>
+                <select id="tx-power" name="tx_power">
+                    <option value="78">19.5 dBm</option>
+                    <option value="76">19 dBm</option>
+                    <option value="74">18.5 dBm</option>
+                    <option value="68">17 dBm</option>
+                    <option value="60">15 dBm</option>
+                    <option value="52">13 dBm</option>
+                    <option value="44">11 dBm</option>
+                    <option value="34">8.5 dBm</option>
+                    <option value="28">7 dBm</option>
+                    <option value="20">5 dBm</option>
+                    <option value="8">2 dBm</option>
+                    <option value="-4">-1 dBm</option>
+                </select>
+            </div>
+        </div>
+        <!-- LED Steuerung -->
+        <div class="form-section">
+            <h3>LED Steuerung</h3>
+            <div class="form-group">
+                <label for="led-enable">LEDs aktivieren:</label>
+                <select id="led-enable" name="led_enable">
+                    <option value="1">Ja</option>
+                    <option value="0">Nein</option>
+                </select>
+            </div>
+        </div>
+        <!-- Bluetooth Konfiguration -->
+        <div class="form-section">
+            <h3>Bluetooth Konfiguration</h3>
+            <div class="form-group">
+                <label for="bluetooth-name">Bluetooth Name:</label>
+                <input type="text" id="bluetooth-name" name="bluetooth_name" placeholder="Bluetooth Name eingeben">
+            </div>
+            <div class="form-group">
+                <label for="bluetooth-enable">Bluetooth aktivieren:</label>
+                <select id="bluetooth-enable" name="bluetooth_enable">
+                    <option value="1">Ja</option>
+                    <option value="0">Nein</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <button type="submit">Speichern</button>
+    <script>
+        // Menü laden
+        fetch('menu.html')
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('menu-placeholder').innerHTML = data;
+            
+            // Hier erst NACH dem Einfügen den aktiven Link markieren:
+            document.querySelectorAll('.menu a').forEach(link => {
+                if (link.href === window.location.href) {
+                    link.classList.add('active');
+                }
+            });
+        })
+        .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+
+        document.querySelector('button[type="submit"]').addEventListener('click', async function(event) {
+            event.preventDefault();
+
+            // Manuelles Sammeln der Daten aus den Eingabefeldern
+            const configData = {
+                device_name: document.getElementById('device-name').value,
+                wifi_ssid: document.getElementById('wifi-ssid').value,
+                wifi_password: document.getElementById('wifi-password').value,
+                ip_address: document.getElementById('ip-address').value,
+                subnet_mask: document.getElementById('subnet-mask').value,
+                gateway: document.getElementById('gateway').value,
+                primary_dns: document.getElementById('primary-dns').value,
+                secondary_dns: document.getElementById('secondary-dns').value,
+                tx_power: document.getElementById('tx-power').value,
+                bluetooth_name: document.getElementById('bluetooth-name').value,
+                bluetooth_enable: document.getElementById('bluetooth-enable').value === "1", // Konvertiere in Boolean
+                led_enable: document.getElementById('led-enable').value === "1" // Boolean
+            };
+
+            // Daten mit fetch an den Server senden
+            const response = await fetch('/api/saveConfig', {
+                method: 'POST',
+                body: JSON.stringify(configData),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // Feedback anzeigen
+            if (response.ok) {
+                const successMessage = document.getElementById('success-message');
+                if (successMessage) {
+                    successMessage.style.display = 'block';
+                    successMessage.textContent = 'Einstellungen erfolgreich gespeichert!';
+                    setTimeout(() => {
+                        successMessage.style.display = 'none';
+                    }, 5000);
+                } else {
+                    alert('Einstellungen erfolgreich gespeichert!');
+                }
+            } else {
+                alert('Fehler beim Speichern der Einstellungen!');
+            }
+        });
+
+        function loadConfig() {
+            fetch('/api/loadConfig')
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        console.log("Geladene Konfiguration:", data);
+                        // Fülle die Felder mit den geladenen Werten
+                        document.getElementById("device-name").value = data.device_name || "";
+                        document.getElementById("wifi-ssid").value = data.wifi_ssid || "";
+                        document.getElementById("wifi-password").value = data.wifi_password || "";
+                        document.getElementById("ip-address").value = data.ip_address || "";
+                        document.getElementById("subnet-mask").value = data.subnet_mask || "";
+                        document.getElementById("gateway").value = data.gateway || "";
+                        document.getElementById("primary-dns").value = data.primary_dns || "";
+                        document.getElementById("secondary-dns").value = data.secondary_dns || "";
+                        document.getElementById("tx-power").value = data.tx_power || "";
+                        document.getElementById("bluetooth-name").value = data.bluetooth_name || "";
+                        document.getElementById("bluetooth-enable").value = data.bluetooth_enable || "0";
+                        document.getElementById("led-enable").value = data.led_enable ? "1" : "0";
+
+                        const successMessage = document.getElementById('success-message');
+                        if (successMessage) {
+                            successMessage.style.display = 'block';
+                            successMessage.textContent = 'Daten erfolgreich geladen!';
+                            setTimeout(() => {
+                                successMessage.style.display = 'none';
+                            }, 5000);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error("Fehler beim Laden der Konfiguration:", error);
+                });
+        }
+
+        // Konfiguration automatisch laden, wenn die Seite geöffnet wird
+        window.addEventListener("load", loadConfig);
+    </script>
+</body>
+</html>

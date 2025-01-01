@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SPIFFS File Manager</title>
+    <style>
+        body {
+            overflow-y: scroll;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+    
+        h1 {
+            color: #FFFFFF;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+    
+        .info {
+            text-align: center;
+            margin: 20px auto;
+            font-size: 18px;
+        }
+    
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: separate; /* Ermöglicht abgerundete Ecken */
+            border-spacing: 0; /* Entfernt Abstände zwischen Zellen */
+            border: 2px solid #FF00FF; /* Magenta-Rahmen */
+            border-radius: 15px; /* Abgerundete Ecken */
+            background-color: #1E1E1E; /* Hintergrundfarbe */
+            overflow: hidden; /* Sorgt dafür, dass abgerundete Ecken auch für Zellen-Inhalt gelten */
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3); /* Leichter Glüheffekt */
+            transition: all 0.3s ease;
+        }
+    
+        thead {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Durchgängiger Farbverlauf für Kopfzeile */
+        }
+    
+        th {
+            color: #FFFFFF; /* Helle Schriftfarbe */
+            font-weight: bold;
+            padding: 10px;
+            text-align: left;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Schwarze Outline */
+            border-right: 1px solid rgba(255, 255, 255, 0.2); /* Subtiler Spaltentrenner */
+        }
+    
+        th:last-child {
+            border-right: none; /* Kein Spaltentrenner für die letzte Spalte */
+        }
+    
+        td {
+            padding: 10px;
+            text-align: left;
+            border-right: 1px solid #FF00FF; /* Magenta Spaltentrenner */
+            border-bottom: 1px solid #FF00FF; /* Magenta Zeilentrenner */
+            white-space: nowrap; /* Verhindert Umbruch */
+            color: #FFFFFF;
+        }
+    
+        td:last-child {
+            border-right: none; /* Kein Spaltentrenner für die letzte Spalte */
+        }
+    
+        tr:nth-child(even) {
+            background-color: #2A2A2A; /* Subtile Hervorhebung für gerade Zeilen */
+        }
+
+        tr:last-child td {
+            border-bottom: none; /* Entfernt die untere Linie in der letzten Zeile */
+        }
+    
+        tr:hover td {
+            background: linear-gradient(90deg, #3A3A3A, #505050); /* Farbverlauf beim Hover */
+            transition: all 0.3s ease;
+        }
+    
+        button {
+            padding: 5px 15px;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            /*border-radius: 10px;*/
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Schwarze Outline */
+        }
+
+        /* Download-Button */
+        .download-button {
+            background: linear-gradient(90deg, #3399FF, #0066CC); /* Sanftes Blau */
+            box-shadow: 0 4px 10px rgba(51, 153, 255, 0.4); /* Blauer Glüheffekt */
+        }
+
+        .download-button:hover {
+            background: linear-gradient(90deg, #0066CC, #3399FF); /* Umgekehrter Verlauf */
+            box-shadow: 0 4px 15px rgba(51, 153, 255, 0.6); /* Verstärkter Glüheffekt */
+        }
+
+        /* Löschen-Button */
+        .delete-button {
+            background: linear-gradient(90deg, #FF4500, #FF0000); /* Intensiveres Rot */
+            box-shadow: 0 4px 10px rgba(255, 69, 0, 0.4); /* Glüheffekt Rot */
+        }
+
+        .delete-button:hover {
+            background: linear-gradient(90deg, #FF0000, #FF4500); /* Umgekehrter Verlauf */
+            box-shadow: 0 4px 15px rgba(255, 69, 0, 0.6); /* Verstärkter Glüheffekt */
+        }
+
+        /* Edit-Button */
+        .edit-button {
+            background: linear-gradient(90deg, #FFAA00, #FF6600); /* Orange für Edit */
+            box-shadow: 0 4px 10px rgba(255, 170, 0, 0.4); /* Glüheffekt Orange */
+        }
+
+        .edit-button:hover {
+            background: linear-gradient(90deg, #FF6600, #FFAA00); /* Umgekehrter Verlauf */
+            box-shadow: 0 4px 15px rgba(255, 170, 0, 0.6); /* Verstärkter Glüheffekt */
+        }
+    
+        .table-container {
+            width: 80%; /* Gleiche Breite wie die Tabelle */
+            margin: 20px auto;
+        }
+    
+        .progress-container {
+            width: calc(100% - 20px); /* Gleiche Breite wie die Tabelle */
+            max-width: 80%; /* Beschränkung auf 80% */
+            margin: 0 auto;
+            background-color: #2A2A2A;
+            border-radius: 10px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            height: 25px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+    
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Magenta Farbverlauf */
+            width: 0%; /* Dynamische Breite in JS aktualisieren */
+            text-align: center;
+            line-height: 25px;
+            color: white;
+            font-weight: bold;
+            transition: width 0.5s ease-in-out;
+        }
+    
+        .success-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, #4CAF50, #2E7D32); /* Grüner Farbverlauf */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 15px; /* Stärkere Rundungen */
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3); /* Glüheffekt in Grün */
+            display: none;
+            z-index: 1000;
+            animation: fadeInOut 10s ease-in-out forwards;
+            font-weight: bold; /* Text betonen */
+            text-align: center; /* Zentrierter Text */
+        }
+    
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        /* Webkit-basiertes Styling für Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px; /* Breite der Scrollbar */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1E1E1E; /* Hintergrund der Scrollbar-Leiste */
+            border-radius: 10px; /* Abgerundete Ecken */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf für die Scrollbar */
+            border-radius: 10px; /* Abgerundete Ecken */
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); /* Subtiler Schatten für mehr Tiefe */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF); /* Umgekehrter Farbverlauf beim Hover */
+        }
+    </style>
+    
+</head>
+<body>
+    <div id="menu-placeholder"></div>
+    <h1>SPIFFS File Manager</h1>
+    <div id="success-message" class="success-message">
+        Datei erfolgreich gespeichert!
+    </div>
+    <div id="storage-info" class="table-container"></div>
+    <div class="table-container">
+        <div class="progress-container">
+           <div id="progress-bar" class="progress-bar">0%</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Dateiname</th>
+                    <th>Größe (Bytes)</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody id="file-list"></tbody>
+        </table>
+    </div>
+    <script>
+        // Menü laden
+        fetch('menu.html')
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('menu-placeholder').innerHTML = data;
+            
+            const currentPath = window.location.pathname; 
+            // z.B. /files.html (egal, ob ?saved=true anhängt)
+
+            document.querySelectorAll('.menu a').forEach(link => {
+                // Wir holen den Pfad aus dem Link (nur /irgendwas.html ohne Query)
+                const linkPath = new URL(link.href).pathname; 
+                
+                if (linkPath === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        })
+        .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+        async function fetchFileList() {
+            const response = await fetch('/api/files');
+            const files = await response.json();
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            files.forEach(file => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${file.name}</td>
+                    <td>${file.size}</td>
+                    <td>
+                        <button class="download-button" onclick="location.href='/download?name=${file.name}'">Download</button>
+                        <button class="delete-button" onclick="deleteFile('${file.name}')">Löschen</button>
+                        <button class="edit-button" onclick="location.href='/edit?name=${file.name}'">Edit</button>
+                    </td>
+                `;
+                fileList.appendChild(row);
+            });
+        }
+
+        async function fetchStorageInfo() {
+            const response = await fetch('/api/storage');
+            const info = await response.json();
+            const storageInfo = document.getElementById('storage-info');
+            const progressBar = document.getElementById('progress-bar');
+
+            // Speicherinfo als Tabelle
+            storageInfo.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Gesamtspeicher</th>
+                            <th>Genutzter Speicher</th>
+                            <th>Freier Speicher</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${info.total} Bytes</td>
+                            <td>${info.used} Bytes</td>
+                            <td>${info.free} Bytes</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            // Fortschrittsbalken aktualisieren
+            const usedPercentage = ((info.used / info.total) * 100).toFixed(1);
+            progressBar.style.width = `${usedPercentage}%`;
+            progressBar.textContent = `${usedPercentage}%`;
+        }
+
+        async function deleteFile(fileName) {
+            if (confirm(`Möchten Sie die Datei '${fileName}' wirklich löschen?`)) {
+                const response = await fetch(`/delete?name=${fileName}`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert('Datei erfolgreich gelöscht!');
+                    location.reload(); // Seite neu laden
+                } else {
+                    alert('Fehler beim Löschen der Datei!');
+                }
+            }
+        }
+
+        function checkSaved() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('saved') === 'true') {
+                const successMessage = document.getElementById('success-message');
+                successMessage.innerText = "Datei erfolgreich gespeichert!";
+                successMessage.style.display = 'block';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 10000); // Nach 10 Sekunden ausblenden
+            }
+        }
+
+        function checkUploaded() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('uploaded') === 'true') {
+                // Erfolgsmeldung zeigen
+                const successMessage = document.getElementById('success-message');
+                successMessage.innerText = "Datei erfolgreich hochgeladen!";
+                successMessage.style.display = 'block';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 10000); // z.B. nach 10 Sek. ausblenden
+            }
+        }
+
+        fetchFileList();
+        fetchStorageInfo();
+        checkUploaded();
+        checkSaved();
+    </script>
+</body>
+</html>

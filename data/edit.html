@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Datei bearbeiten</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+    
+        /* Gemeinsamer Container */
+        .edit-container {
+            width: 80%;
+            margin: 20px auto; /* Zentriert den Container auf der Seite */
+        }
+    
+        .edit-container h1 {
+            color: #FFFFFF;
+            text-align: center;
+        }
+    
+        .edit-container h2 {
+            color: #FFFFFF;
+            text-align: center;
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf */
+            padding: 10px 20px;
+            border-radius: 10px 10px 0 0; /* Nur obere Ecken abrunden */
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Schwarze Kontur */
+            display: inline-block;
+            margin: 0 auto; /* Zentriert */
+            
+            /* Glow hinzufügen */
+            box-shadow: 
+                0 0 15px rgba(255, 0, 255, 0.5), /* Äußerer Glow */
+                0 4px 10px rgba(255, 0, 255, 0.2); /* Subtiler zweiter Glow */
+        }
+    
+        form {
+            background: linear-gradient(180deg, #1E1E1E, #2A2A2A); /* Leichter Verlauf im Hintergrund */
+            padding: 20px;
+            width: 100%;
+            border-radius: 0 0 15px 15px; /* Nur untere Ecken abrunden */
+            border: none; /* Entferne den Standardrahmen */
+            position: relative; /* Für den Glow */
+            margin-top: -2px; /* Minimale Überlappung mit h2 */
+
+            /* Nur Glow für die Seiten und den unteren Rand */
+            box-shadow: 
+                0 0 15px 5px rgba(255, 0, 255, 0.5), /* Glow nach außen */
+                0 4px 10px rgba(255, 0, 255, 0.2); /* Subtiler zweiter Glow */
+        }
+    
+        textarea {
+            width: calc(100% - 20px); /* Platz für den Abstand rechts und links */
+            height: 600px;
+            margin-bottom: 20px;
+            background-color: #2A2A2A;
+            color: #E0E0E0;
+            border: none;
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            box-shadow: none;
+            border-radius: 0;
+            transition: none;
+            scrollbar-width: thin;
+            scrollbar-color: #FF00FF #1E1E1E;
+        }
+
+        /* Webkit-basiertes Styling für Scrollbars */
+        textarea::-webkit-scrollbar {
+            width: 10px; /* Breite der Scrollbar */
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: #1E1E1E; /* Hintergrund der Scrollbar-Leiste */
+            border-radius: 10px; /* Abgerundete Ecken */
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF); /* Farbverlauf für die Scrollbar */
+            border-radius: 10px; /* Abgerundete Ecken */
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); /* Subtiler Schatten für mehr Tiefe */
+        }
+
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF); /* Umgekehrter Farbverlauf beim Hover */
+        }
+    
+        textarea:focus {
+            background-color: #333333;
+            outline: none; /* Verhindert den Standard-Fokus-Rahmen */
+        }
+    
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+        }
+    
+        button {
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Schwarze Outline für Text */
+            transition: all 0.3s ease;
+        }
+    
+        button:hover {
+            filter: brightness(85%);
+        }
+    
+        .save-button {
+            background: linear-gradient(90deg, #00FF80, #00CC66); /* Türkis-Grün Farbverlauf */
+            box-shadow: 0 4px 10px rgba(0, 255, 128, 0.4); /* Glüheffekt Türkis-Grün */
+        }
+    
+        .save-button:hover {
+            background: linear-gradient(90deg, #00CC66, #00FF80); /* Umgekehrter Verlauf */
+            box-shadow: 0 4px 15px rgba(0, 255, 128, 0.6); /* Verstärkter Glüheffekt */
+        }
+    
+        .cancel-button {
+            background: linear-gradient(90deg, #FF4500, #FF0000); /* Rot Farbverlauf */
+            box-shadow: 0 4px 10px rgba(255, 69, 0, 0.4); /* Glüheffekt Rot */
+        }
+    
+        .cancel-button:hover {
+            background: linear-gradient(90deg, #FF0000, #FF4500); /* Umgekehrter Verlauf */
+            box-shadow: 0 4px 15px rgba(255, 69, 0, 0.6); /* Verstärkter Glüheffekt */
+        }
+    
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.2); /* Leichter Hintergrund */
+            border-radius: 50%;
+            border-top: 4px solid #FF00FF; /* Magenta für Loader */
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin: 10px auto;
+        }
+    
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="edit-container">
+        <h1>Datei bearbeiten</h1>
+        <h2 id="filename">Datei bearbeiten</h2>
+
+        <form method="POST" action="/save">
+            <textarea name="content" id="file-content"></textarea>
+            <input type="hidden" name="name" id="file-name">
+            <div class="button-container">
+                <button type="submit" class="save-button">Speichern</button>
+                <button type="button" class="cancel-button" onclick="cancelEdit()">Abbrechen</button>
+            </div>
+        </form>
+        
+        <div id="loader" class="loader" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function loadFile() {
+            const params = new URLSearchParams(window.location.search);
+            const fileName = params.get('name');
+            const loader = document.getElementById('loader');
+            const filenameElem = document.getElementById('filename');
+            filenameElem.innerText = fileName;
+            const textarea = document.getElementById('file-content');
+            const fileInput = document.getElementById('file-name');
+
+            try {
+                loader.style.display = 'block'; // Loader anzeigen
+                const response = await fetch(`/api/file?name=${fileName}`);
+                const content = await response.text();
+                textarea.value = content;
+                fileInput.value = fileName;
+            } catch (error) {
+                console.error('Fehler beim Laden der Datei:', error);
+                textarea.value = 'Fehler beim Laden der Datei.';
+            } finally {
+                loader.style.display = 'none'; // Loader ausblenden
+            }
+        }
+
+        function cancelEdit() {
+            window.location.href = '/files.html'; // Zur Dateiliste zurückkehren
+        }
+
+        loadFile();
+    </script>
+</body>
+</html>

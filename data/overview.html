@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 Umgebungsdaten</title>
+    <style>
+        /* ============ GLOBAL STYLES ============ */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+        #menu-placeholder {
+            /* Hier kommt dein dynamisch geladenes Menü rein. 
+               Falls du noch spezielle Styles für den Menübalken brauchst, 
+               kannst du das hier tun. */
+        }
+        h1 {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        /* ============ LAYOUT WRAPPER ============ */
+        .content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+            gap: 40px; 
+            margin-bottom: 40px;
+        }
+        
+        /* ============ OBERE TABELLE (breit) ============ */
+        .table-wide {
+            width: 80%;
+            max-width: 1000px; 
+        }
+
+        /* ============ UNTERE REIHE (2 Tabellen nebeneinander) ============ */
+        .table-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 80%;
+            max-width: 1000px; 
+        }
+        .table-container {
+            flex: 1 1 300px;
+            min-width: 300px;
+        }
+
+        /* ============ ALLGEMEINES TABELLEN-STYLING ============ */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 2px solid #FF00FF;
+            border-radius: 10px; /* Rundung der Außenkanten */
+            background-color: #1E1E1E;
+            overflow: hidden; /* Damit die Ecken wirklich abgerundet wirken */
+            table-layout: fixed;
+        }
+        /* -- Kopfzeilen-Design -- */
+        thead {
+            /* Keine eigene Hintergrundfarbe hier direkt, 
+               wir machen das in den tr/th, damit die Ränder abgerundet sind */
+        }
+        /* Die erste Kopfzeile (mit dem colspan) soll die oberen Ecken abrunden */
+        thead tr:first-child th {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            color: #FFFFFF;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border-top-left-radius: 8px;  /* Noch mal speziell abrunden */
+            border-top-right-radius: 8px;
+            border-bottom: 1px solid #FF00FF;
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+        }
+
+        /* Die zweite Kopfzeile (Parameter/Aktuell/Min/Max/Aktion) */
+        thead tr:last-child {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+        }
+        thead tr:last-child th {
+            color: #FFFFFF;
+            font-weight: bold;
+            padding: 10px;
+            text-align: left;
+            border-right: 1px solid #FF00FF;
+            border-bottom: 1px solid #FF00FF;
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+        }
+
+        thead th {
+            text-shadow: -1px -1px 0 #000,
+                        1px -1px 0 #000,
+                        -1px 1px 0 #000,
+                        1px 1px 0 #000;
+        }
+        thead tr:last-child th:last-child {
+            border-right: none;
+        }
+
+        /* -- Inhalt-Design -- */
+        tbody tr:nth-child(even) {
+            background-color: #2A2A2A;
+        }
+        tbody tr:hover td {
+            background-color: #3A3A3A;
+            transition: all 0.3s ease;
+        }
+        tbody th, tbody td {
+            vertical-align: middle;
+            line-height: 1.5;
+            color: #FFFFFF;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #FF00FF;
+            border-right: 1px solid #FF00FF;
+        }
+        /* Letzte Spalte ohne rechte Linie */
+        tbody td:last-child, thead tr:last-child th:last-child {
+            border-right: none;
+        }
+        /* Letzte Zeile ohne untere Linie + abgerundete Ecken, falls gewünscht */
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        /* Falls du auch unten abgerundete Ecken willst, brauchst du
+           ggf. :last-child-Selektoren, oder du rundest nur oben ab. */
+
+        /* ============ BUTTONS ============ */
+        button {
+            width: 100%;
+            padding: 8px 15px;
+            border: none;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #FF3300, #FF6600);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000,
+                         -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #FF6600, #FF3300);
+            box-shadow: 0 4px 10px rgba(255, 102, 0, 0.5);
+        }
+
+        /* ============ LADE-INDIKATOR ============ */
+        #loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #FFFFFF;
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            text-align: center;
+        }
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #FF00FF;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ============ BATTERIE-BALKEN ============ */
+        .battery-container {
+            width: 90%;
+            max-width: 300px;
+            height: 20px;
+            border: 2px solid #FF00FF;
+            border-radius: 5px;
+            background-color: #1E1E1E;
+            position: relative;
+            overflow: hidden;
+            margin: 10px auto;
+        }
+        .battery-progress {
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease-in-out, background-color 0.3s ease;
+            box-shadow: 0 2px 5px rgba(255, 0, 255, 0.3);
+            border-radius: 2px;
+        }
+        .battery-percentage-text {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #FFFFFF;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000,
+                         -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        .battery-progress.green {
+            background: linear-gradient(90deg, #33FF33, #009900);
+        }
+        .battery-progress.orange {
+            background: linear-gradient(90deg, #FFCC00, #FF9900);
+        }
+        .battery-progress.red {
+            background: linear-gradient(90deg, #FF0000, #990000);
+        }
+
+        /* Optional: Scrollbar-Anpassungen */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1E1E1E;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #FF00FF, #8800FF);
+            border-radius: 10px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #8800FF, #FF00FF);
+        }
+    </style>
+</head>
+<body>
+    <!-- Dein Menü wird dynamisch hier eingefügt -->
+    <div id="menu-placeholder"></div>
+
+    <h1>ESP32 Umgebungsdaten</h1>
+
+    <!-- Lade-Indikator -->
+    <div id="loading-indicator">
+        <div class="loader"></div>
+        <p>Daten werden geladen...</p>
+    </div>
+
+    <div class="content-wrapper">
+        <!-- ========== OBERE TABELLE ========== -->
+        <div class="table-wide">
+            <table>
+                <thead>
+                    <!-- ERSTE KOPFZEILE: "Umgebungswerte" über 5 Spalten -->
+                    <tr>
+                        <th colspan="5">Umgebungswerte</th>
+                    </tr>
+                    <!-- ZWEITE KOPFZEILE: Parameter / Aktuell / Min / Max / Aktion -->
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Aktuell</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Temperatur</td>
+                        <td>
+                            <span id="currentTemp">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td>
+                            <span id="minTemp">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td>
+                            <span id="maxTemp">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td><button onclick="resetMinMax()">Reset</button></td>
+                    </tr>
+                    <tr>
+                        <td>Luftfeuchtigkeit</td>
+                        <td>
+                            <span id="humidity">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td>Druck</td>
+                        <td>
+                            <span id="pressure">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td><button onclick="toggleDisplay('on')">Display An</button></td>
+                    </tr>
+                    <tr>
+                        <td>Helligkeit</td>
+                        <td>
+                            <span id="lux">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td>Entfernung</td>
+                        <td>
+                            <span id="distance">
+                                <div class="loader" style="display: none;"></div>
+                                <span>Laden...</span>
+                            </span>
+                        </td>
+                        <td><button onclick="toggleDisplay('off')">Display Aus</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ========== UNTERE REIHE: SOLAR PANEL + BATTERIEWERTE NEBENEINANDER ========== -->
+        <div class="table-row">
+            <!-- Solar Panel -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="2">Solar Panel</th>
+                        </tr>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Aktuell</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Spannung</td>
+                            <td>
+                                <span id="voltage">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Stromstärke</td>
+                            <td>
+                                <span id="current">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Leistung</td>
+                            <td>
+                                <span id="power">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Batteriewerte -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="2">Batteriewerte</th>
+                        </tr>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Aktuell</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Batterie Spannung</td>
+                            <td>
+                                <span id="batteryVoltage">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Batterie Stromstärke</td>
+                            <td>
+                                <span id="batteryCurrent">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Batterie Leistung</td>
+                            <td>
+                                <span id="batteryPower">
+                                    <div class="loader" style="display: none;"></div>
+                                    <span>Laden...</span>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Batterie Ladezustand</td>
+                            <td>
+                                <div class="battery-container">
+                                    <div id="battery-progress" class="battery-progress" style="width: 0%;">
+                                        <div id="battery-percentage-text" class="battery-percentage-text">Laden...</div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div><!-- Ende .table-row -->
+    </div><!-- Ende .content-wrapper -->
+
+    <script>
+        // ========== MENÜ LADEN ==========
+        fetch('menu.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('menu-placeholder').innerHTML = data;
+            })
+            .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+
+        // ========== BUTTON-FUNKTIONEN ==========
+        function toggleDisplay(state) {
+            fetch('/api/display', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `state=${state}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    console.log(data.message);
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(error => {
+                alert('Fehler: ' + error.message);
+            });
+        }
+
+        function toggleLoadingIndicator(show) {
+            const indicator = document.getElementById('loading-indicator');
+            indicator.style.display = show ? 'block' : 'none';
+        }
+
+        async function resetMinMax() {
+            try {
+                toggleLoadingIndicator(true);
+                const response = await fetch('/api/reset', { method: 'POST' });
+                if (response.ok) {
+                    alert('Min/Max-Werte erfolgreich zurückgesetzt!');
+                    getSensorData();
+                } else {
+                    alert('Fehler beim Zurücksetzen der Min/Max-Werte.');
+                }
+            } catch (error) {
+                console.error(error);
+            } finally {
+                toggleLoadingIndicator(false);
+            }
+        }
+
+        // ========== SENSOR-DATEN HOLEN ==========
+        async function getSensorData() {
+            const fields = [
+                'currentTemp', 'minTemp', 'maxTemp', 'humidity', 'pressure',
+                'voltage', 'current', 'power', 'lux', 'distance',
+                'batteryVoltage', 'batteryCurrent', 'batteryPower'
+            ];
+            try {
+                fields.forEach(id => toggleFieldLoader(id, true));
+
+                const response = await fetch('/api/sensordaten');
+                if (!response.ok) throw new Error('Netzwerk-Fehler');
+                const data = await response.json();
+
+                updateValue('currentTemp', data.temperatur + ' °C');
+                updateValue('minTemp', data.minTemperatur + ' °C');
+                updateValue('maxTemp', data.maxTemperatur + ' °C');
+                updateValue('humidity', data.luftfeuchtigkeit + ' %');
+                updateValue('pressure', data.druck + ' hPa');
+                updateValue('voltage', data.spannung + ' V');
+                updateValue('current', data.stromstärke + ' mA');
+                updateValue('power', data.leistung + ' mW');
+                updateValue('lux', data.helligkeit + ' lx');
+                updateValue('distance', data.entfernung + ' mm');
+                updateValue('batteryVoltage', data.battery_spannung + ' V');
+                updateValue('batteryCurrent', data.battery_stromstärke_mA + ' mA');
+                updateValue('batteryPower', data.battery_leistung + ' mW');
+                updateBatteryState(data.battery_prozent);
+
+            } catch (error) {
+                console.error(error);
+                fields.forEach(id => updateValue(id, 'Fehler', true));
+            } finally {
+                fields.forEach(id => toggleFieldLoader(id, false));
+            }
+        }
+
+        // ========== HILFSFUNKTIONEN ========== 
+        function updateValue(id, value, isError = false) {
+            const element = document.getElementById(id);
+            if (!element) return;
+            element.innerText = value;
+            element.style.color = isError ? 'red' : '';
+        }
+
+        function toggleFieldLoader(id, show) {
+            const field = document.getElementById(id);
+            if (!field) return;
+            const loader = field.querySelector('.loader');
+            const text = field.querySelector('span');
+            if (!loader) return;
+            loader.style.display = show ? 'inline-block' : 'none';
+            text.style.display = show ? 'none' : 'inline';
+        }
+
+        function updateBatteryState(percentage) {
+            const progressBar = document.getElementById('battery-progress');
+            const percentageText = document.getElementById('battery-percentage-text');
+            if (!progressBar || !percentageText) return;
+
+            progressBar.style.width = `${percentage}%`;
+            percentageText.innerText =
+                (percentage !== undefined && percentage !== null)
+                ? `${percentage}%`
+                : 'N/A';
+
+            // Farbe je nach Ladezustand
+            progressBar.classList.remove('green', 'orange', 'red');
+            if (percentage > 75) {
+                progressBar.classList.add('green');
+            } else if (percentage > 25) {
+                progressBar.classList.add('orange');
+            } else {
+                progressBar.classList.add('red');
+            }
+        }
+
+        // ========== BEIM SEITENSTART ==========
+        window.onload = () => {
+            getSensorData();
+            setInterval(getSensorData, 30000);
+        };
+    </script>
+</body>
+</html>
