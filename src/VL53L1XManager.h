@@ -38,6 +38,18 @@ public:
         return (sensor.ranging_data.range_status == 0);
     }
 
+    // Sensor in den Stromsparmodus versetzen
+    void enterLowPowerMode() {
+        sensor.stopContinuous(); // Stoppt den kontinuierlichen Modus
+        delay(1); // Kurze Pause, um sicherzustellen, dass der Sensor den Modus verlässt
+    }
+
+    // Sensor wieder aktivieren
+    void exitLowPowerMode() {
+        sensor.startContinuous(50); // Startet den kontinuierlichen Modus erneut
+        delay(1); // Kurze Pause, um den Sensor zu stabilisieren
+    }
+
 private:
     VL53L1X sensor;
     TwoWire *wire;

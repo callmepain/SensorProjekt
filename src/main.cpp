@@ -24,7 +24,7 @@ WiFiServer telnetServer(23); // Telnet-Server auf Port 23
 WiFiClient telnetClient;
 TelnetLogger logger(&telnetClient);
 ConfigManager configManager;  // Konfigurationsmanager erstellen
-LEDControl ledControl(strip);
+LEDControl ledControl;
 SensorHandler sensorHandler(bme);
 WebServerHandler webServerHandler(sensorHandler);
 
@@ -619,6 +619,7 @@ void setup() {
     telnetServer.setNoDelay(true);
     mainMenu.draw();
     initTasks();
+    distanceSensor.enterLowPowerMode();
 }
 
 void CheckVoltage() {
