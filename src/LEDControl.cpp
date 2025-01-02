@@ -25,6 +25,7 @@ void LEDControl::init() {
     FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.setBrightness(currentBrightness);
     FastLED.clear();
+    FastLED.show();
     Serial.println("LEDControl initialized with Config:");
     Serial.println("Brightness: " + String(currentBrightness));
     Serial.println("State: " + String(lightState ? "ON" : "OFF"));
