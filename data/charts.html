@@ -40,6 +40,7 @@
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(700px, 1fr)); /* Mindestbreite von 700px pro Spalte */
+            justify-items: center; /* Zentriere die Boxen */
             gap: 20px; /* Abstand zwischen den Charts */
             padding: 20px;
         }
@@ -50,12 +51,19 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            border: 2px solid #8800FF; /* Rand in Neonfarben */
+            border-radius: 10px; /* Abgerundete Ecken */
+            background-color: #1E1E1E; /* Dunkler Hintergrund */
+            box-shadow: 0 4px 15px rgba(136, 0, 255, 0.4); /* Glühender Schatten */
+            padding: 10px; /* Innenabstand */
         }
 
         canvas {
             width: 100%;
             max-width: 800px; /* Maximalbreite für die Charts */
             height: auto; /* Automatische Höhe */
+            background-color: #1E1E1E; /* Passender Hintergrund für Charts */
+            border-radius: 10px; /* Abgerundete Ecken */
         }
 
         /* Webkit-basiertes Styling für Scrollbars */
@@ -227,19 +235,38 @@
         // Dark Mode Optionen
         const darkModeOptions = {
             plugins: {
+                tooltip: {
+                    backgroundColor: 'rgba(136, 0, 255, 0.9)', // Passenderer Neon-Hintergrund
+                    borderColor: '#FF00FF', // Neonfarbener Rand
+                    borderWidth: 2, // Breitere Ränder für mehr Sichtbarkeit
+                    titleColor: '#FFFFFF', // Titeltext in Weiß
+                    bodyColor: '#FFFFFF', // Inhaltstext in Weiß
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    displayColors: false, // Keine Farbblöcke anzeigen
+                    callbacks: {
+                        labelTextColor: () => '#FFFFFF', // Textfarbe Weiß
+                    },
+                    caretPadding: 10, // Abstand zwischen Tooltip und Chart
+                    padding: 12, // Padding im Tooltip
+                },
                 legend: {
-                    labels: { color: '#ffffff' } // Weiße Legendentexte
+                    labels: { color: '#FFFFFF', font: { size: 14 } } // Weiße Legendentexte, größere Schrift
                 }
             },
             scales: {
                 x: {
-                    ticks: { color: '#ffffff' }, // Weiße X-Achsentexte
-                    title: { display: true, text: 'Timestamp', color: '#ffffff' }
+                    ticks: { color: '#FFFFFF', font: { size: 12 } }, // Weiße X-Achsentexte
+                    title: { display: true, text: 'Timestamp', color: '#FFFFFF', font: { size: 16 } } // Titel
                 },
                 y: {
-                    ticks: { color: '#ffffff' }, // Weiße Y-Achsentexte
-                    title: { display: true, text: '', color: '#ffffff' } // Y-Achsentitel wird dynamisch gesetzt
+                    ticks: { color: '#FFFFFF', font: { size: 12 } }, // Weiße Y-Achsentexte
+                    title: { display: true, text: '', color: '#FFFFFF', font: { size: 16 } } // Dynamischer Titel
                 }
+            },
+            elements: {
+                line: { borderWidth: 2 }, // Dünnere Linien für alle Charts
+                point: { radius: 3, backgroundColor: '#FFFFFF' } // Kleine, weiße Punkte auf den Linien
             }
         };
 

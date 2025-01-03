@@ -258,6 +258,10 @@
         ::-webkit-scrollbar-thumb:hover {
             background: linear-gradient(90deg, #8800FF, #FF00FF);
         }
+        canvas {
+            margin: 10px auto;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -279,81 +283,59 @@
         <div class="table-wide">
             <table>
                 <thead>
-                    <!-- ERSTE KOPFZEILE: "Umgebungswerte" über 5 Spalten -->
                     <tr>
-                        <th colspan="5">Umgebungswerte</th>
-                    </tr>
-                    <!-- ZWEITE KOPFZEILE: Parameter / Aktuell / Min / Max / Aktion -->
-                    <tr>
-                        <th>Parameter</th>
-                        <th>Aktuell</th>
-                        <th>Min</th>
-                        <th>Max</th>
-                        <th>Aktion</th>
+                        <th colspan="3">Umgebungswerte</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Temperatur</td>
                         <td>
                             <canvas id="temperatureGauge" width="200" height="200"></canvas>
-                            <span id="currentTemp">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
                         </td>
                         <td>
                             <canvas id="mintemperatureGauge" width="200" height="200"></canvas>
-                            <span id="minTemp">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
+                            </div>
                         </td>
                         <td>
                             <canvas id="maxtemperatureGauge" width="200" height="200"></canvas>
-                            <span id="maxTemp">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
+                            </div>
                         </td>
-                        <td><button onclick="resetMinMax()">Reset</button></td>
                     </tr>
                     <tr>
-                        <td>Luftfeuchtigkeit</td>
                         <td>
                             <canvas id="humidityGauge" width="200" height="200"></canvas>
-                            <span id="humidity">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
+                            </div>
                         </td>
-                        <td>Druck</td>
                         <td>
                             <canvas id="pressureGauge" width="200" height="200"></canvas>
-                            <span id="pressure">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
+                            </div>
                         </td>
-                        <td><button onclick="toggleDisplay('on')">Display An</button></td>
-                    </tr>
-                    <tr>
-                        <td>Helligkeit</td>
                         <td>
                             <canvas id="luxGauge" width="200" height="200"></canvas>
-                            <span id="lux">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
                         </td>
-                        <td>Entfernung</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-row">
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="3">Buttons</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
                         <td>
-                            <span id="distance">
-                                <div class="loader" style="display: none;"></div>
-                                <span>Laden...</span>
-                            </span>
+                            <button onclick="resetMinMax()">Reset</button>
                         </td>
-                        <td><button onclick="toggleDisplay('off')">Display Aus</button></td>
+                        <td>
+                            <button onclick="toggleDisplay('on')">Display An</button>
+                        </td>
+                        <td>
+                            <button onclick="toggleDisplay('off')">Display Aus</button>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -523,6 +505,13 @@
             ctx.fillStyle = '#1E1E1E';
             ctx.fill();
 
+            // Heller Rand
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.lineWidth = 3; // Breite des Randes
+            ctx.strokeStyle = '#8800FF'; // Farbe des Randes, passend zum Design
+            ctx.stroke();
+
             // Skala
             const startAngle = Math.PI;
             const endAngle = 2 * Math.PI;
@@ -552,6 +541,8 @@
                     ctx.fillText(i, textX, textY);
                 }
             }
+
+            drawMinMaxMarkers(ctx, centerX, centerY, radius, minValue, maxValue, max, startValue);
 
             // Zeiger
             const angle = startAngle + ((value - startValue) / (max - startValue)) * (endAngle - startAngle);
@@ -584,27 +575,30 @@
             ctx.fillText(label, centerX, centerY + radius / 2);
         }
 
-        function drawMinMaxMarkers(ctx, centerX, centerY, radius, minValue, maxValue, max) {
-            const startAngle = Math.PI;
-            const endAngle = 2 * Math.PI;
+        function drawMinMaxMarkers(ctx, centerX, centerY, radius, minValue, maxValue, max, startValue = 0) {
+            const startAngle = Math.PI; // Anfangswinkel der Skala
+            const endAngle = 2 * Math.PI; // Endwinkel der Skala
+            const range = max - startValue; // Tatsächlicher Bereich der Skala
 
-            if (minValue > 0) {
-                const minAngle = startAngle + (minValue / max) * (endAngle - startAngle);
+            // Min-Marker
+            if (minValue > startValue) {
+                const minAngle = startAngle + ((minValue - startValue) / range) * (endAngle - startAngle);
                 const minX = centerX + radius * Math.cos(minAngle);
                 const minY = centerY + radius * Math.sin(minAngle);
                 ctx.beginPath();
                 ctx.arc(minX, minY, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = '#00FFFF'; // Min-Marker Farbe
+                ctx.fillStyle = '#00FFFF'; // Farbe für den Min-Marker
                 ctx.fill();
             }
 
-            if (maxValue > 0) {
-                const maxAngle = startAngle + (maxValue / max) * (endAngle - startAngle);
+            // Max-Marker
+            if (maxValue > startValue) {
+                const maxAngle = startAngle + ((maxValue - startValue) / range) * (endAngle - startAngle);
                 const maxX = centerX + radius * Math.cos(maxAngle);
                 const maxY = centerY + radius * Math.sin(maxAngle);
                 ctx.beginPath();
                 ctx.arc(maxX, maxY, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = '#FF00FF'; // Max-Marker Farbe
+                ctx.fillStyle = '#FF00FF'; // Farbe für den Max-Marker
                 ctx.fill();
             }
         }
@@ -670,11 +664,11 @@
                 const data = await response.json();
 
                 updateValue('currentTemp', data.temperatur + ' °C');
-                drawGauge('temperatureGauge', data.temperatur, 28, 'Temperatur', data.minTemperatur, data.maxTemperatur, '°C', 10);
+                drawGauge('temperatureGauge', data.temperatur, 28, 'Temperatur', data.minTemperatur, data.maxTemperatur, '°C', 17);
                 updateValue('minTemp', data.minTemperatur + ' °C');
-                drawGauge('mintemperatureGauge', data.minTemperatur, 28, 'minTemperatur', 0, 0, '°C', 10);
+                drawGauge('mintemperatureGauge', data.minTemperatur, 28, 'minTemperatur', 0, 0, '°C', 17);
                 updateValue('maxTemp', data.maxTemperatur + ' °C');
-                drawGauge('maxtemperatureGauge', data.maxTemperatur, 28, 'maxTemperatur', 0, 0, '°C',10);
+                drawGauge('maxtemperatureGauge', data.maxTemperatur, 28, 'maxTemperatur', 0, 0, '°C',17);
                 updateValue('humidity', data.luftfeuchtigkeit + ' %');
                 drawGauge('humidityGauge', data.luftfeuchtigkeit, 100, 'Luftfeuchtigkeit', 0, 0, '%', 0);
                 updateValue('pressure', data.druck + ' hPa');
