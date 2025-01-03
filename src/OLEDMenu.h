@@ -6,6 +6,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include "DisplayConfig.h"
 
 // Menüeintrag mit optionalem Submenü
 struct MenuEntry {
@@ -32,6 +33,7 @@ public:
 
     // Menü zeichnen
     void drawMenu() {
+        if (!isDisplayOn()) return;
         display->clearDisplay();
         display->setTextSize(1);
 

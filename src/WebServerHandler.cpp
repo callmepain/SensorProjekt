@@ -8,6 +8,7 @@
 #include <numeric> // Für std::accumulate
 #include "Battery.h"
 #include <Adafruit_SSD1306.h>
+#include "DisplayConfig.h"
 
 extern Adafruit_SSD1306 display;
 extern Battery battery; // Deklaration, keine Definition
@@ -36,11 +37,11 @@ void WebServerHandler::init() {
         if (state == "on") {
             displayOn = true;
             // Display einschalten (Beispiel für SSD1306)
-            display.ssd1306_command(SSD1306_DISPLAYON);
+            setDisplayState(true);
         } else if (state == "off") {
             displayOn = false;
             // Display ausschalten (Beispiel für SSD1306)
-            display.ssd1306_command(SSD1306_DISPLAYOFF);
+            setDisplayState(false);
         } else {
             server.send(400, "application/json", "{\"error\":\"Invalid state\"}");
             return;

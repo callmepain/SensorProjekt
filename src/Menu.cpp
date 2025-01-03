@@ -1,6 +1,7 @@
 #include "Menu.h"
 #include "ConfigManager.h"
 #include "LEDControl.h"
+#include "DisplayConfig.h"
 
 int test = 1;
 // Definition von externen Variablen (müssen im Hauptprogramm deklariert sein)
@@ -49,6 +50,7 @@ void Menu::navigate(const String& direction) {
 }
 
 void Menu::draw() {
+     if (!isDisplayOn()) return;  // Zeichnen überspringen, wenn Display aus
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
