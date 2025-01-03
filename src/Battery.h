@@ -32,6 +32,7 @@ private:
 public:
     // Konstruktor
     Battery(int capacity, const char* path);
+    void initialize();
 
     // Methoden
     float calculateChargingTime(float current_mA);

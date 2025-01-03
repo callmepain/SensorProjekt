@@ -45,19 +45,22 @@ void SensorHandler::updateSensors() {
                 Serial.println("Min/Max-Temperaturen aktualisiert und gespeichert.");
             }
         } else {
-            Serial.println("Warnung: Ungültiger Temperaturwert gelesen. Wert wird ignoriert.");
+            Serial.print("Warnung: Ungültiger Temperaturwert gelesen: ");
+            Serial.println(newTemp);
         }
 
         if (newHum >= 0.0 && newHum <= 100.0) { // Gültiger Bereich für Luftfeuchtigkeit
             humidity = newHum;
         } else {
-            Serial.println("Warnung: Ungültiger Luftfeuchtigkeitswert gelesen. Wert wird ignoriert.");
+            Serial.print("Warnung: Ungültiger Luftfeuchtigkeitswert gelesen: ");
+            Serial.println(newHum);
         }
 
-        if (newPres >= 300.0 && newPres <= 1100.0) { // Gültiger Bereich für Luftdruck in hPa
+        if (newPres >= 300.0 && newPres <= 1200.0) { // Gültiger Bereich für Luftdruck in hPa
             pressure = newPres;
         } else {
-            Serial.println("Warnung: Ungültiger Druckwert gelesen. Wert wird ignoriert.");
+            Serial.print("Warnung: Ungültiger Druckwert gelesen: ");
+            Serial.println(newPres);
         }
     } else {
         Serial.println("BME280 nicht verfügbar, keine Aktualisierung der Umweltdaten.");

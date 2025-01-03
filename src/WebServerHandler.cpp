@@ -15,6 +15,16 @@ extern Battery battery; // Deklaration, keine Definition
 WebServerHandler::WebServerHandler(SensorHandler& sensorHandler)
     : server(80), sensorHandler(sensorHandler) {}
 
+void WebServerHandler::streamFileFromSPIFFS(const String& path, const char* contentType) {
+    File file = openFile(path, "r");
+    if (!file) {
+        sendError(404, "Datei nicht gefunden: " + path);
+        return;
+    }
+    server.streamFile(file, contentType);
+    file.close();
+}
+
 void WebServerHandler::init() {
     server.on("/api/display", HTTP_POST, [this]() {
         if (!server.hasArg("state")) {
@@ -164,13 +174,7 @@ void WebServerHandler::init() {
     });
 
     server.on("/ota.html", HTTP_GET, [this]() {
-        File file = openFile("/ota.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /ota.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/ota.html", "text/html");
     });
 
     // Setup API endpoint
@@ -213,13 +217,7 @@ void WebServerHandler::init() {
     });
 
     server.on("/upload.html", HTTP_GET, [this]() {
-        File file = openFile("/upload.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /upload.html");
-            return;
-        }
-        server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/upload.html", "text/html");
     });
 
     server.on("/upload", HTTP_POST, [this]() {
@@ -233,23 +231,11 @@ void WebServerHandler::init() {
     });
 
     server.on("/edit", HTTP_GET, [this]() {
-        File file = openFile("/edit.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /edit.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/edit.html", "text/html");
     });
 
     server.on("/files", HTTP_GET, [this]() {
-        File file = openFile("/files.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /files.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/files.html", "text/html");
     });
 
     server.on("/save", HTTP_POST, [this]() {
@@ -257,39 +243,20 @@ void WebServerHandler::init() {
     });
 
     server.on("/index.html", HTTP_GET, [this]() {
-        File file = openFile("/index.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /index.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/index.html", "text/html");
     });
 
     server.on("/charts.html", HTTP_GET, [this]() {
-        File file = openFile("/charts.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /charts.html");
-            return;
-        }
-
-        // Setze CORS-Header manuell
-        this->server.sendHeader("Access-Control-Allow-Origin", "*"); // Erlaubt Anfragen von allen Domains
-        this->server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); // Erlaubte Methoden
-        this->server.sendHeader("Access-Control-Allow-Headers", "Content-Type"); // Erlaubte Header
-
-        this->server.streamFile(file, "text/html");
-        file.close();
+        // Setze zusätzliche Header wenn nötig
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+        
+        this->streamFileFromSPIFFS("/charts.html", "text/html");
     });
 
     server.on("/menu.html", HTTP_GET, [this]() {
-        File file = openFile("/menu.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /menu.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/menu.html", "text/html");
     });
 
     server.on("/files.html", HTTP_GET, [this]() {
@@ -313,23 +280,11 @@ void WebServerHandler::init() {
     });
 
     server.on("/overview.html", HTTP_GET, [this]() {
-        File file = openFile("/overview.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /overview.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/overview.html", "text/html");
     });
 
     server.on("/config.html", HTTP_GET, [this]() {
-        File file = openFile("/config.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /config.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
+        this->streamFileFromSPIFFS("/config.html", "text/html");
     });
 
     server.on("/api/saveConfig", HTTP_POST, [this]() {

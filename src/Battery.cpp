@@ -8,12 +8,18 @@ extern INA219Manager ina2;
 
 // Konstruktor
 Battery::Battery(int capacity, const char* path) 
-    : batteryCapacity(capacity), totalEnergy(0), filePath(path), sampleIndex(0)
+    : batteryCapacity(capacity), filePath(path), sampleIndex(0)
 {
     for (int i = 0; i < SAMPLE_SIZE; i++) {
         voltageSamples[i] = 0;
         currentSamples[i] = 0;
     }
+}
+
+void Battery::initialize() {
+    // JSON-Daten laden, nachdem das Dateisystem initialisiert wurde
+    loadFromJson();
+    Serial.println("Battery erfolgreich initialisiert.");
 }
 
 // Initialisierungsmethode für Samples
@@ -46,7 +52,7 @@ void Battery::saveToJson(float energy) {
     if (serializeJson(doc, file) == 0) {
         Serial.println("Fehler beim Schreiben der JSON-Daten");
     } else {
-        Serial.println("Daten erfolgreich gespeichert.");
+        //Serial.println("Energie Daten erfolgreich gespeichert.");
     }
     file.close();
 }
@@ -69,10 +75,12 @@ void Battery::loadFromJson() {
 
     if (doc["totalEnergy"].is<float>()) {
         totalEnergy = doc["totalEnergy"].as<float>();
+    } else {
+        totalEnergy = 0; // Standardwert
     }
 
     file.close();
-    Serial.println("Daten erfolgreich geladen.");
+    Serial.println("Energie Daten erfolgreich geladen.");
 }
 
 // Ladezeit berechnen
@@ -97,7 +105,7 @@ float Battery::calculateChargingTime(float current_mA) {
 
 // Update-Daten
 void Battery::update(float voltage, float current_mA, float energy_mWh) {
-    totalEnergy = energy_mWh;  
+    totalEnergy += energy_mWh / 1000.0;  
 
     // Spannung aktualisieren
     addSample(voltageSamples, voltageSampleIndex, voltage);
@@ -187,7 +195,9 @@ void Battery::updateTask(void *param) {
         float rawVoltage = ina2.getBusVoltage_V();  
         float rawCurrent = ina2.getCurrent_mA(); // z.B. Entladung, wird gleich positiv gemacht
         float positiveCurrent = fabs(rawCurrent);
-        float energy_mWh = ina2.getBusPower_mW();  
+        //float energy_mWh = ina2.getBusPower_mW();  
+
+        float energy_mWh = ina2.getBusPower_mW() * (self->taskDelayMs / 3600000.0); // ms → Stunden
 
         // Update-Aufruf
         self->update(rawVoltage, positiveCurrent, energy_mWh);

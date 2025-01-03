@@ -18,7 +18,7 @@
 #include "TelnetLogger.h"
 
 #define RELAIS_PIN 26
-Battery battery(13600, "/battery_data.json");
+Battery battery(3400, "/battery_data.json");
 TaskHandle_t menuTaskHandle;
 WiFiServer telnetServer(23); // Telnet-Server auf Port 23
 WiFiClient telnetClient;
@@ -187,7 +187,7 @@ void drawIna2() {
         if (showPower) {
             display.print("Watt:     "); display.print(power); display.print(" mW");
         } else {
-            display.print("Energie: "); display.print(battery.getTotalEnergy()); display.print(" mWh");
+            display.print("Energie: "); display.print(battery.getTotalEnergy()); display.print(" Wh");
         }
 
         display.setCursor(0, 30);
@@ -205,9 +205,19 @@ void drawIna2() {
         display.print("Batterie laden... ");
 
         float currentChargingTime = battery.calculateChargingTime(current_mA);
-        display.setCursor(0, 20);
-        display.print("Dauer: "); display.print(currentChargingTime); display.print(" Stunden");
-
+        if (currentChargingTime >= 1.00) {
+            display.setCursor(0, 20);
+            display.print("Dauer: "); 
+            display.print(currentChargingTime, 2); // Zwei Nachkommastellen für Stunden
+            display.print(" Stunden");
+        } else {
+            float minutes = currentChargingTime * 60; // Umrechnung in Minuten
+            display.setCursor(0, 20);
+            display.print("Dauer: "); 
+            display.print(minutes, 1); // Eine Nachkommastelle für Minuten
+            display.print(" Minuten");
+        }
+        
         display.setCursor(0, 30);
         display.print("Ladestrom: "); display.print(fabs(current_mA)); display.print(" mA");
 
@@ -511,8 +521,8 @@ void initConfigManager() {
         config.wifi_ssid = "Kühle";
         configManager.saveConfig();
     }
-    configManager.listFiles();
-    configManager.printConfig();
+    //configManager.listFiles();
+    //configManager.printConfig();
     loadMinMaxFromJson();
 }
 
@@ -541,19 +551,18 @@ void initSensors() {
         logger.log("INA konnte nicht initialisiert werden!");
     }
     
-    ina1.setADCMode(SAMPLE_MODE_128);
-    ina1.setPGain(PG_320);
+    ina1.setADCMode(SAMPLE_MODE_4);
+    ina1.setPGain(PG_40);
     ina1.setBusRange(BRNG_16);
-    ina2.setADCMode(SAMPLE_MODE_128);
-    ina2.setPGain(PG_320);
+    ina2.setADCMode(SAMPLE_MODE_16);
+    ina2.setPGain(PG_160);
     ina2.setBusRange(BRNG_16);
 
+    battery.initialize();
     float initialVoltage = ina2.getBusVoltage_V();
     float initialCurrent = ina2.getCurrent_mA();
-    //battery.initializeSamples(initialVoltage, initialCurrent);
     battery.initializeSamples(initialVoltage, initialCurrent);
     battery.startUpdateTask(1000, 1, 1);
-    //battery.startSampling(1000);
 
     if (!lightSensor.begin()) {
         logger.log("GY-302 konnte nicht initialisiert werden!");
@@ -564,7 +573,6 @@ void initSensors() {
         logger.log("VL53L1X konnte nicht initialisiert werden!");
     }
     logger.log("VL53L1X gestartet.");
-    battery.loadFromJson();
 }
 
 void initButtons() {
@@ -602,6 +610,9 @@ void initTasks() {
 
 void setup() {
     Serial.begin(115200);
+
+    setCpuFrequencyMhz(80);
+    Serial.println("CPU-Takt auf 80 MHz reduziert.");
 
     pinMode(RELAIS_PIN, OUTPUT); // Pin als Ausgang definieren
     digitalWrite(RELAIS_PIN, LOW); // Relais anfangs ausgeschaltet

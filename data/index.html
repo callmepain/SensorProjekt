@@ -296,18 +296,21 @@
                     <tr>
                         <td>Temperatur</td>
                         <td>
+                            <canvas id="temperatureGauge" width="200" height="200"></canvas>
                             <span id="currentTemp">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
                             </span>
                         </td>
                         <td>
+                            <canvas id="mintemperatureGauge" width="200" height="200"></canvas>
                             <span id="minTemp">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
                             </span>
                         </td>
                         <td>
+                            <canvas id="maxtemperatureGauge" width="200" height="200"></canvas>
                             <span id="maxTemp">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
@@ -318,6 +321,7 @@
                     <tr>
                         <td>Luftfeuchtigkeit</td>
                         <td>
+                            <canvas id="humidityGauge" width="200" height="200"></canvas>
                             <span id="humidity">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
@@ -325,6 +329,7 @@
                         </td>
                         <td>Druck</td>
                         <td>
+                            <canvas id="pressureGauge" width="200" height="200"></canvas>
                             <span id="pressure">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
@@ -335,6 +340,7 @@
                     <tr>
                         <td>Helligkeit</td>
                         <td>
+                            <canvas id="luxGauge" width="200" height="200"></canvas>
                             <span id="lux">
                                 <div class="loader" style="display: none;"></div>
                                 <span>Laden...</span>
@@ -493,6 +499,123 @@
             });
         }
 
+        function getColorForValue(value, max) {
+            const percent = value / max;
+            if (percent < 0.5) return '#33FF33'; // Grün
+            if (percent < 0.75) return '#FFCC00'; // Gelb
+            return '#FF3300'; // Rot
+        }
+
+        function drawGauge(canvasId, value, max, label, minValue = 0, maxValue = 0, unit = '', startValue = 0) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) / 2 - 10;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Hintergrundkreis
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#1E1E1E';
+            ctx.fill();
+
+            // Skala
+            const startAngle = Math.PI;
+            const endAngle = 2 * Math.PI;
+            const tickInterval = calculateTickInterval(max - startValue);
+
+            for (let i = startValue; i <= max; i += tickInterval) {
+                const angle = startAngle + ((i - startValue) / (max - startValue)) * (endAngle - startAngle);
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                const innerX = centerX + (radius - 10) * Math.cos(angle);
+                const innerY = centerY + (radius - 10) * Math.sin(angle);
+
+                ctx.beginPath();
+                ctx.moveTo(innerX, innerY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = i % (tickInterval * 5) === 0 ? '#FFFFFF' : '#8800FF';
+                ctx.lineWidth = i % (tickInterval * 5) === 0 ? 2 : 1;
+                ctx.stroke();
+
+                // Zwischenwerte anzeigen
+                if (i % (tickInterval * 5) === 0 || i === startValue || i === max) {
+                    const textX = centerX + (radius - 25) * Math.cos(angle);
+                    const textY = centerY + (radius - 25) * Math.sin(angle);
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(i, textX, textY);
+                }
+            }
+
+            // Zeiger
+            const angle = startAngle + ((value - startValue) / (max - startValue)) * (endAngle - startAngle);
+            const needleX = centerX + (radius - 20) * Math.cos(angle);
+            const needleY = centerY + (radius - 20) * Math.sin(angle);
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(needleX, needleY);
+            ctx.strokeStyle = '#FF6600';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Text: Wert mit Einheit
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            ctx.fillText(`${value.toFixed(1)} ${unit}`, centerX, centerY);
+
+            // Text: Label
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#FF00FF';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 0; // Schatten für das Label deaktivieren
+            ctx.fillText(label, centerX, centerY + radius / 2);
+        }
+
+        function drawMinMaxMarkers(ctx, centerX, centerY, radius, minValue, maxValue, max) {
+            const startAngle = Math.PI;
+            const endAngle = 2 * Math.PI;
+
+            if (minValue > 0) {
+                const minAngle = startAngle + (minValue / max) * (endAngle - startAngle);
+                const minX = centerX + radius * Math.cos(minAngle);
+                const minY = centerY + radius * Math.sin(minAngle);
+                ctx.beginPath();
+                ctx.arc(minX, minY, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#00FFFF'; // Min-Marker Farbe
+                ctx.fill();
+            }
+
+            if (maxValue > 0) {
+                const maxAngle = startAngle + (maxValue / max) * (endAngle - startAngle);
+                const maxX = centerX + radius * Math.cos(maxAngle);
+                const maxY = centerY + radius * Math.sin(maxAngle);
+                ctx.beginPath();
+                ctx.arc(maxX, maxY, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#FF00FF'; // Max-Marker Farbe
+                ctx.fill();
+            }
+        }
+
+        function calculateTickInterval(maxValue) {
+            if (maxValue <= 50) return 2; // Für niedrige Werte, z. B. Temperatur
+            if (maxValue <= 200) return 10; // Für moderate Werte, z. B. Lux
+            if (maxValue <= 1200) return 50; // Für hohe Werte, z. B. Druck
+            return 100; // Standard für sehr große Werte
+        }
+
         function toggleLoadingIndicator(show) {
             const indicator = document.getElementById('loading-indicator');
             indicator.style.display = show ? 'block' : 'none';
@@ -547,14 +670,20 @@
                 const data = await response.json();
 
                 updateValue('currentTemp', data.temperatur + ' °C');
+                drawGauge('temperatureGauge', data.temperatur, 28, 'Temperatur', data.minTemperatur, data.maxTemperatur, '°C', 10);
                 updateValue('minTemp', data.minTemperatur + ' °C');
+                drawGauge('mintemperatureGauge', data.minTemperatur, 28, 'minTemperatur', 0, 0, '°C', 10);
                 updateValue('maxTemp', data.maxTemperatur + ' °C');
+                drawGauge('maxtemperatureGauge', data.maxTemperatur, 28, 'maxTemperatur', 0, 0, '°C',10);
                 updateValue('humidity', data.luftfeuchtigkeit + ' %');
+                drawGauge('humidityGauge', data.luftfeuchtigkeit, 100, 'Luftfeuchtigkeit', 0, 0, '%', 0);
                 updateValue('pressure', data.druck + ' hPa');
+                drawGauge('pressureGauge', data.druck, 1100, 'Druck', 0, 0, 'hPa', 0);
                 updateValue('voltage', data.spannung + ' V');
                 updateValue('current', data.stromstärke + ' mA');
                 updateValue('power', data.leistung + ' mW');
                 updateValue('lux', data.helligkeit + ' lx');
+                drawGauge('luxGauge', data.helligkeit, 1000, 'Lux', 0, 0, 'lx', 0);
                 updateValue('distance', data.entfernung + ' mm');
                 updateValue('batteryVoltage', data.battery_spannung + ' V');
                 updateValue('batteryCurrent', data.battery_stromstärke_mA + ' mA');
