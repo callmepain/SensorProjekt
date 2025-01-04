@@ -88,9 +88,11 @@ void WebServerHandler::init() {
             displayOn = true;
             // Display einschalten (Beispiel für SSD1306)
             setDisplayState(true);
+            setDisplayState(true);
         } else if (state == "off") {
             displayOn = false;
             // Display ausschalten (Beispiel für SSD1306)
+            setDisplayState(false);
             setDisplayState(false);
         } else {
             server.send(400, "application/json", "{\"error\":\"Invalid state\"}");
