@@ -16,8 +16,15 @@
 #include "SensorConfig.h"
 #include "MenuConfig.h"
 #include "TelnetLogger.h"
+#include <SPI.h>
+#include <SD.h>
 
-#define RELAIS_PIN 26
+
+#define SD_CS 5 // Pin für CS
+
+
+int lastClkState;
+
 Battery battery(3400, "/battery_data.json");
 TaskHandle_t menuTaskHandle;
 WiFiServer telnetServer(23); // Telnet-Server auf Port 23
@@ -368,22 +375,6 @@ View DistanceView(drawDistance);
 View WifiView(drawWifiInfo);
 View LuxView(drawLuxInfo);
 
-void handleSensorAndLEDControl() {
-    if (ledControl.isOn()) {
-        sensorHandler.checkSensors();
-        sensorHandler.updateSensors();
-        ledControl.update(sensorHandler.getTemperature());
-
-        int potValue = analogRead(POT_PIN);
-        ledControl.adjustBrightness(potValue);
-    } else {
-        sensorHandler.updateSensors();
-    }
-
-    totalEnergy_ina1 = ina1.updateEnergy();
-    totalEnergy_ina2 = ina2.updateEnergy();
-}
-
 void processMenuSelection() {
     String selected = currentMenu->getSelectedItem();
     if (currentMenu == &mainMenu) {
@@ -425,39 +416,54 @@ void processMenuSelection() {
 }
 
 void handleMenuNavigation() {
-    static bool prevDown = true;
+    if (!isDisplayOn()) return;  // Zeichnen überspringen, wenn Display aus
+    static int lastEncoderState = HIGH;
     static bool prevSelect = true;
     static unsigned long lastSelectPress = 0;
 
-    bool downState = digitalRead(buttonDownPin);
-    bool selectState = digitalRead(buttonSelectPin);
+    // Rotary Encoder Zustände lesen
+    int encoderState = digitalRead(CLK_PIN);
+    bool dtState = digitalRead(DT_PIN);
+    bool selectState = digitalRead(SW_PIN);
 
-    if (!downState && prevDown) {
-        if (currentState == STATE_MENU && currentMenu) {
-            currentMenu->navigate("down");
+    // Navigation mit Rotary Encoder
+    if (encoderState != lastEncoderState && encoderState == LOW) {
+        // Drehrichtung prüfen
+        if (dtState != encoderState) {
+            // Nach unten navigieren
+            if (currentState == STATE_MENU && currentMenu) {
+                currentMenu->navigate("down");
+            }
+        } else {
+            // Nach oben navigieren
+            if (currentState == STATE_MENU && currentMenu) {
+                currentMenu->navigate("up");
+            }
         }
     }
 
+    // Auswahl mit Taster (SW_PIN)
     if (prevSelect && !selectState) {
         unsigned long currentMillis = millis();
-        if (currentMillis - lastSelectPress > 300) {
+        if (currentMillis - lastSelectPress > 300) { // Entprellen
             lastSelectPress = currentMillis;
 
             if (currentState == STATE_MENU && currentMenu) {
-                processMenuSelection();
+                processMenuSelection(); // Menüpunkt auswählen
             } else if (currentState == STATE_VIEW) {
-                currentState = STATE_MENU;
+                currentState = STATE_MENU; // Zurück ins Menü
                 currentMenu = &mainMenu;
                 mainMenu.draw();
             }
         }
     }
 
-    prevDown = downState;
+    lastEncoderState = encoderState;
     prevSelect = selectState;
 }
 
 void handleCurrentViewUpdate() {
+    if (!isDisplayOn()) return;  // Zeichnen überspringen, wenn Display aus
     if (currentState == STATE_VIEW) {
         unsigned long currentMillis = millis();
         if (currentMillis - lastUpdate >= updateInterval) {
@@ -498,7 +504,7 @@ void menuTask(void *parameter) {
         handleCurrentViewUpdate();  // Display-Updates
 
         // Task-Delay für reduzierte CPU-Auslastung
-        vTaskDelay(pdMS_TO_TICKS(100)); // 100 ms Intervall
+        vTaskDelay(pdMS_TO_TICKS(10)); // 100 ms Intervall
     }
 }
 
@@ -576,8 +582,12 @@ void initSensors() {
 }
 
 void initButtons() {
-    pinMode(buttonDownPin, INPUT_PULLUP);
-    pinMode(buttonSelectPin, INPUT_PULLUP);
+    // Pins für den Drehgeber initialisieren
+    pinMode(CLK_PIN, INPUT);
+    pinMode(DT_PIN, INPUT);
+    pinMode(SW_PIN, INPUT_PULLUP);
+
+    lastClkState = digitalRead(CLK_PIN);
 }
 
 void initTasks() {
@@ -611,11 +621,14 @@ void initTasks() {
 void setup() {
     Serial.begin(115200);
 
+    if (!SD.begin(SD_CS)) {
+        Serial.println("SD-Karte konnte nicht initialisiert werden.");
+        return;
+    }
+    Serial.println("SD-Karte erfolgreich initialisiert.");
+
     setCpuFrequencyMhz(80);
     Serial.println("CPU-Takt auf 80 MHz reduziert.");
-
-    pinMode(RELAIS_PIN, OUTPUT); // Pin als Ausgang definieren
-    digitalWrite(RELAIS_PIN, LOW); // Relais anfangs ausgeschaltet
 
     initConfigManager();
     initSPIFFS();
@@ -633,18 +646,6 @@ void setup() {
     distanceSensor.enterLowPowerMode();
 }
 
-void CheckVoltage() {
-    static bool Charging = false;
-    float Voltage = battery.getSmoothedVoltage();
-    if (Voltage <= 3.8 && !Charging) {
-        digitalWrite(RELAIS_PIN, HIGH);
-        Charging = true;
-    } else if (Voltage >= 3.85 && Charging) {
-        digitalWrite(RELAIS_PIN, LOW);
-        Charging = false;
-    }
-}
-
 void loop() {
     static bool test = true;
     if (!test) {
@@ -653,11 +654,9 @@ void loop() {
     }
 
     handleTelnetConnection();
-    //handleSensorAndLEDControl();
     sensorHandler.updateSensors();
     totalEnergy_ina1 = ina1.updateEnergy();
     totalEnergy_ina2 = ina2.updateEnergy();
-    CheckVoltage();
     // Kurzes Debouncing
     delay(100);
 }

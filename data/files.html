@@ -244,16 +244,21 @@
             });
         })
         .catch(error => console.error('Fehler beim Laden des Menüs:', error));
+
         async function fetchFileList() {
             const response = await fetch('/api/files');
             const files = await response.json();
             const fileList = document.getElementById('file-list');
             fileList.innerHTML = '';
+
             files.forEach(file => {
+                const source = file.name.startsWith('SPIFFS:') ? 'SPIFFS' : 'SD';
+                const displayName = file.name.replace(/^SPIFFS:|^SD:/, ''); // Entfernt das Präfix
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${file.name}</td>
-                    <td>${file.size}</td>
+                    <td>${displayName}</td>
+                    <td>${file.size} Bytes</td>
                     <td>
                         <button class="download-button" onclick="location.href='/download?name=${file.name}'">Download</button>
                         <button class="delete-button" onclick="deleteFile('${file.name}')">Löschen</button>
@@ -268,30 +273,42 @@
             const response = await fetch('/api/storage');
             const info = await response.json();
             const storageInfo = document.getElementById('storage-info');
-            const progressBar = document.getElementById('progress-bar');
 
-            // Speicherinfo als Tabelle
+            // Helper-Funktion zum Umrechnen von Bytes in MB
+            function bytesToMB(bytes) {
+                return (bytes / (1024 * 1024)).toFixed(2); // 2 Dezimalstellen
+            }
+
             storageInfo.innerHTML = `
                 <table>
                     <thead>
                         <tr>
-                            <th>Gesamtspeicher</th>
-                            <th>Genutzter Speicher</th>
-                            <th>Freier Speicher</th>
+                            <th>Speicher</th>
+                            <th>Gesamtspeicher (MB)</th>
+                            <th>Genutzter Speicher (MB)</th>
+                            <th>Freier Speicher (MB)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>${info.total} Bytes</td>
-                            <td>${info.used} Bytes</td>
-                            <td>${info.free} Bytes</td>
+                            <td>SPIFFS</td>
+                            <td>${bytesToMB(info.SPIFFS.total)} MB</td>
+                            <td>${bytesToMB(info.SPIFFS.used)} MB</td>
+                            <td>${bytesToMB(info.SPIFFS.free)} MB</td>
+                        </tr>
+                        <tr>
+                            <td>SD</td>
+                            <td>${info.SD.total ? bytesToMB(info.SD.total) + " MB" : "N/A"}</td>
+                            <td>${info.SD.used ? bytesToMB(info.SD.used) + " MB" : "N/A"}</td>
+                            <td>${info.SD.free ? bytesToMB(info.SD.free) + " MB" : "N/A"}</td>
                         </tr>
                     </tbody>
                 </table>
             `;
 
-            // Fortschrittsbalken aktualisieren
-            const usedPercentage = ((info.used / info.total) * 100).toFixed(1);
+            // Fortschrittsbalken für SPIFFS aktualisieren
+            const progressBar = document.getElementById('progress-bar');
+            const usedPercentage = ((info.SPIFFS.used / info.SPIFFS.total) * 100).toFixed(1);
             progressBar.style.width = `${usedPercentage}%`;
             progressBar.textContent = `${usedPercentage}%`;
         }
@@ -301,7 +318,7 @@
                 const response = await fetch(`/delete?name=${fileName}`, { method: 'DELETE' });
                 if (response.ok) {
                     alert('Datei erfolgreich gelöscht!');
-                    location.reload(); // Seite neu laden
+                    fetchFileList(); // Liste aktualisieren
                 } else {
                     alert('Fehler beim Löschen der Datei!');
                 }

@@ -44,7 +44,9 @@ private:
     int updateVoltageSamplesAndCalculateSoC(float newVoltage);
     int calculateBatteryPercentageWithSamples(const std::vector<float>& voltageSamples);
     float calculateRemainingTime(float voltage, float current_mA, int batteryCapacity_mAh);
-    void streamFileFromSPIFFS(const String& path, const char* contentType);
+    String getContentType(const String& path);
+    bool streamFileFromSPIFFS(const String& path, const char* contentType);
+    bool streamFileFromSD(const String& path, const char* contentType);
 
     // Hilfsfunktionen
     File openFile(String path, const char* mode);

@@ -10,7 +10,7 @@
 class Battery {
 private:
     const char* filePath;
-    static const int SAMPLE_SIZE = 10;  
+    static const int SAMPLE_SIZE = 20;  
     float voltageSamples[SAMPLE_SIZE];
     float currentSamples[SAMPLE_SIZE];
     int voltageSampleIndex = 0; // Index für voltageSamples

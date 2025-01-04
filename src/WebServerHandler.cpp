@@ -9,6 +9,7 @@
 #include "Battery.h"
 #include <Adafruit_SSD1306.h>
 #include "DisplayConfig.h"
+#include <SD.h>
 
 extern Adafruit_SSD1306 display;
 extern Battery battery; // Deklaration, keine Definition
@@ -16,17 +17,66 @@ extern Battery battery; // Deklaration, keine Definition
 WebServerHandler::WebServerHandler(SensorHandler& sensorHandler)
     : server(80), sensorHandler(sensorHandler) {}
 
-void WebServerHandler::streamFileFromSPIFFS(const String& path, const char* contentType) {
+String WebServerHandler::getContentType(const String& path) {
+    if (path.endsWith(".html")) return "text/html";
+    if (path.endsWith(".css")) return "text/css";
+    if (path.endsWith(".js")) return "application/javascript";
+    if (path.endsWith(".png")) return "image/png";
+    if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+    if (path.endsWith(".ico")) return "image/x-icon";
+    if (path.endsWith(".svg")) return "image/svg+xml";
+    if (path.endsWith(".json")) return "application/json";
+    if (path.endsWith(".txt")) return "text/plain";
+    return "application/octet-stream"; // Fallback für unbekannte Typen
+}
+
+bool WebServerHandler::streamFileFromSPIFFS(const String& path, const char* contentType) {
     File file = openFile(path, "r");
     if (!file) {
-        sendError(404, "Datei nicht gefunden: " + path);
-        return;
+        return false; // Datei nicht gefunden
     }
     server.streamFile(file, contentType);
     file.close();
+    return true; // Erfolgreich gestreamt
+}
+
+bool WebServerHandler::streamFileFromSD(const String& path, const char* contentType) {
+    // Öffne die Datei auf der SD-Karte
+    File file = SD.open(path, FILE_READ);
+    if (!file) {
+        return false;
+    }
+
+    // Stream die Datei an den Client
+    server.streamFile(file, contentType);
+    file.close();
+    return true;
 }
 
 void WebServerHandler::init() {
+    server.onNotFound([this]() {
+        String path = server.uri(); // Der angeforderte Dateipfad
+        if (path.endsWith("/")) {
+            path += "index.html"; // Standard-Datei für Verzeichnisse
+        }
+
+        // Bestimme den Content-Type basierend auf der Dateierweiterung
+        String contentType = getContentType(path);
+
+        // Versuche, die Datei von der SD-Karte zu streamen
+        if (this->streamFileFromSD(path, contentType.c_str())) {
+            return; // Erfolgreich von SD gestreamt
+        }
+
+        // Versuche, die Datei aus SPIFFS zu streamen
+        if (this->streamFileFromSPIFFS(path, contentType.c_str())) {
+            return; // Erfolgreich aus SPIFFS gestreamt
+        }
+
+        // Wenn die Datei weder in SPIFFS noch auf der SD-Karte gefunden wurde
+        this->sendError(404, "Datei nicht gefunden: " + path);
+    });
+
     server.on("/api/display", HTTP_POST, [this]() {
         if (!server.hasArg("state")) {
             server.send(400, "application/json", "{\"error\":\"State parameter missing\"}");
@@ -174,10 +224,6 @@ void WebServerHandler::init() {
         }
     });
 
-    server.on("/ota.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/ota.html", "text/html");
-    });
-
     // Setup API endpoint
     server.on("/api/sensordaten", [this]() {
         this->handleSensorAPI();
@@ -187,17 +233,6 @@ void WebServerHandler::init() {
     server.on("/api/reset", HTTP_POST, [this]() {
         resetMinMaxValues(); // Funktion zum Zurücksetzen der Min/Max-Werte
         this->server.send(200, "application/json", String("{\"message\":\"Min/Max zurückgesetzt\"}"));
-    });
-
-    // Setup HTML page
-    server.on("/", HTTP_GET, [this]() {
-        File file = openFile("/index.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /index.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
     });
 
     // Neue Routen für SPIFFS-Dateien
@@ -217,10 +252,6 @@ void WebServerHandler::init() {
         this->handleDownloadFile();
     });
 
-    server.on("/upload.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/upload.html", "text/html");
-    });
-
     server.on("/upload", HTTP_POST, [this]() {
         this->handleUpload();
     }, [this]() {
@@ -235,57 +266,8 @@ void WebServerHandler::init() {
         this->streamFileFromSPIFFS("/edit.html", "text/html");
     });
 
-    server.on("/files", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/files.html", "text/html");
-    });
-
     server.on("/save", HTTP_POST, [this]() {
         this->handleSaveFile();
-    });
-
-    server.on("/index.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/index.html", "text/html");
-    });
-
-    server.on("/charts.html", HTTP_GET, [this]() {
-        // Setze zusätzliche Header wenn nötig
-        server.sendHeader("Access-Control-Allow-Origin", "*");
-        server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-        
-        this->streamFileFromSPIFFS("/charts.html", "text/html");
-    });
-
-    server.on("/menu.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/menu.html", "text/html");
-    });
-
-    server.on("/files.html", HTTP_GET, [this]() {
-        File file = openFile("/files.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /files.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
-    });
-
-    server.on("/upload.html", HTTP_GET, [this]() {
-        File file = openFile("/upload.html", "r");
-        if (!file) {
-            sendError(404, "Datei nicht gefunden: /upload.html");
-            return;
-        }
-        this->server.streamFile(file, "text/html");
-        file.close();
-    });
-
-    server.on("/overview.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/overview.html", "text/html");
-    });
-
-    server.on("/config.html", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/config.html", "text/html");
     });
 
     server.on("/api/saveConfig", HTTP_POST, [this]() {
@@ -353,28 +335,70 @@ void WebServerHandler::handleClient() {
 
 void WebServerHandler::handleFileListAPI() {
     String json = "[";
-    File root = SPIFFS.open("/");
-    if (!root) {
-        Serial.println("Fehler: Root-Verzeichnis konnte nicht geöffnet werden.");
-        server.send(500, "application/json", "{\"error\":\"Root directory not accessible\"}");
-        return;
+
+    // Dateien aus SPIFFS auflisten
+    File rootSPIFFS = SPIFFS.open("/");
+    if (rootSPIFFS) {
+        File file = rootSPIFFS.openNextFile();
+        while (file) {
+            if (json.length() > 1) json += ",";
+            json += "{\"name\":\"SPIFFS:" + String(file.name()) + "\",\"size\":" + String(file.size()) + "}";
+            file = rootSPIFFS.openNextFile();
+        }
+    } else {
+        Serial.println("Fehler: SPIFFS Root-Verzeichnis konnte nicht geöffnet werden.");
     }
-    File file = root.openNextFile();
-    while (file) {
-        if (json.length() > 1) json += ",";
-        json += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + "}";
-        file = root.openNextFile();
+
+    // Dateien aus der SD-Karte auflisten
+    if (SD.begin(5)) { // Beispiel: CS-Pin 5
+        File rootSD = SD.open("/");
+        if (rootSD) {
+            File file = rootSD.openNextFile();
+            while (file) {
+                if (json.length() > 1) json += ",";
+                json += "{\"name\":\"SD:" + String(file.name()) + "\",\"size\":" + String(file.size()) + "}";
+                file = rootSD.openNextFile();
+            }
+        } else {
+            Serial.println("Fehler: SD-Karte Root-Verzeichnis konnte nicht geöffnet werden.");
+        }
+    } else {
+        Serial.println("Fehler: SD-Karte konnte nicht initialisiert werden.");
     }
+
     json += "]";
     server.send(200, "application/json", json);
 }
 
 void WebServerHandler::handleStorageInfoAPI() {
-    size_t total = SPIFFS.totalBytes();
-    size_t used = SPIFFS.usedBytes();
-    size_t free = total - used;
+    String json = "{";
 
-    String json = "{\"total\":" + String(total) + ",\"used\":" + String(used) + ",\"free\":" + String(free) + "}";
+    // Speicherinformationen für SPIFFS
+    size_t spiffsTotal = SPIFFS.totalBytes();
+    size_t spiffsUsed = SPIFFS.usedBytes();
+    size_t spiffsFree = spiffsTotal - spiffsUsed;
+
+    json += "\"SPIFFS\":{";
+    json += "\"total\":" + String(spiffsTotal) + ",";
+    json += "\"used\":" + String(spiffsUsed) + ",";
+    json += "\"free\":" + String(spiffsFree) + "},";
+    
+    // Speicherinformationen für SD-Karte
+    if (SD.begin(5)) { // Beispiel: CS-Pin 5
+        uint64_t sdTotal = SD.cardSize(); // Gesamtkapazität der SD-Karte in Bytes
+        uint64_t sdUsed = sdTotal - SD.totalBytes(); // Genutzter Speicher
+        uint64_t sdFree = sdTotal - sdUsed;
+
+        json += "\"SD\":{";
+        json += "\"total\":" + String(sdTotal) + ",";
+        json += "\"used\":" + String(sdUsed) + ",";
+        json += "\"free\":" + String(sdFree) + "}";
+    } else {
+        json += "\"SD\":{\"error\":\"SD card not initialized\"}";
+    }
+
+    json += "}";
+
     server.send(200, "application/json", json);
 }
 
@@ -383,19 +407,37 @@ void WebServerHandler::handleFileContentAPI() {
         server.send(400, "text/plain", "Fehlender Dateiname");
         return;
     }
-    String fileName = server.arg("name");
-    if (!fileName.startsWith("/")) fileName = "/" + fileName;
 
-    File file = SPIFFS.open(fileName, "r");
-    if (!file) {
-        server.send(404, "text/plain", "Datei nicht gefunden");
+    String fileName = server.arg("name");
+    File file;
+
+    // Prüfen, welches Dateisystem basierend auf dem Präfix verwendet werden soll
+    if (fileName.startsWith("SD:")) {
+        fileName = fileName.substring(3); // Entferne 'SD:'-Präfix
+        fileName = "/" + fileName; // Füge "/" für Root-Dateien hinzu
+        if (SD.begin(5)) { // Beispiel: CS-Pin 5
+            file = SD.open(fileName, "r");
+        } else {
+            server.send(500, "text/plain", "SD-Karte konnte nicht initialisiert werden.");
+            return;
+        }
+    } else if (fileName.startsWith("SPIFFS:")) {
+        fileName = fileName.substring(7); // Entferne 'SPIFFS:'-Präfix
+        if (!fileName.startsWith("/")) {
+            fileName = "/" + fileName;
+        }
+        file = SPIFFS.open(fileName, "r");
+    } else {
+        server.send(400, "text/plain", "Ungültiger Präfix. Unterstützt: SD:, SPIFFS:");
         return;
     }
 
-    String content = "";
-    while (file.available()) {
-        content += char(file.read());
+    if (!file) {
+        server.send(404, "text/plain", "Datei nicht gefunden: " + fileName);
+        return;
     }
+
+    String content = file.readString();
     file.close();
     server.send(200, "text/plain", content);
 }
@@ -405,26 +447,41 @@ void WebServerHandler::handleSaveFile() {
         server.send(400, "text/plain", "Fehlender Dateiname oder Inhalt");
         return;
     }
+
     String fileName = server.arg("name");
     String fileContent = server.arg("content");
+    File file;
 
-    // Prüfen, ob der Dateiname mit '/' beginnt
-    if (!fileName.startsWith("/")) {
-        fileName = "/" + fileName;
+    // Prüfen, welches Dateisystem basierend auf dem Präfix verwendet werden soll
+    if (fileName.startsWith("SD:")) {
+        fileName = fileName.substring(3); // Entferne 'SD:'-Präfix
+        if (SD.begin(5)) { // Beispiel: CS-Pin 5
+            file = SD.open(fileName, "w");
+        } else {
+            server.send(500, "text/plain", "SD-Karte konnte nicht initialisiert werden.");
+            return;
+        }
+    } else if (fileName.startsWith("SPIFFS:")) {
+        fileName = fileName.substring(7); // Entferne 'SPIFFS:'-Präfix
+        if (!fileName.startsWith("/")) {
+            fileName = "/" + fileName;
+        }
+        file = SPIFFS.open(fileName, "w");
+    } else {
+        server.send(400, "text/plain", "Ungültiger Präfix. Unterstützt: SD:, SPIFFS:");
+        return;
     }
 
-    File file = SPIFFS.open(fileName, "w");
     if (!file) {
-        server.send(500, "text/plain", "Fehler beim Öffnen der Datei zum Schreiben");
+        server.send(500, "text/plain", "Fehler beim Öffnen der Datei zum Schreiben: " + fileName);
         return;
     }
 
     file.print(fileContent);
     file.close();
 
-    // Weiterleitung zur /files-Seite mit Erfolgsnachricht
     server.sendHeader("Location", "/files.html?saved=true");
-    server.send(303);  // HTTP-Statuscode 303: "See Other"
+    server.send(303);
 }
 
 void WebServerHandler::handleDeleteFile() {
@@ -439,12 +496,39 @@ void WebServerHandler::handleDeleteFile() {
         fileName = "/" + fileName;
     }
 
-    if (SPIFFS.remove(fileName)) {
-        server.send(200, "text/plain", "Datei gelöscht: " + fileName);
-        Serial.println("Datei gelöscht: " + fileName);
+    bool fileDeleted = false;
+
+    // Versuche, die Datei auf der SD-Karte zu löschen
+    if (SD.begin(5)) { // Beispiel: CS-Pin 5
+        if (SD.exists(fileName)) {
+            fileDeleted = SD.remove(fileName);
+            if (fileDeleted) {
+                Serial.println("Datei von der SD-Karte gelöscht: " + fileName);
+            } else {
+                Serial.println("Fehler beim Löschen der Datei von der SD-Karte: " + fileName);
+            }
+        }
     } else {
-        server.send(500, "text/plain", "Fehler beim Löschen der Datei: " + fileName);
-        Serial.println("Fehler beim Löschen der Datei: " + fileName);
+        Serial.println("SD-Karte konnte nicht initialisiert werden.");
+    }
+
+    // Wenn die Datei nicht auf der SD-Karte gelöscht wurde, versuche SPIFFS
+    if (!fileDeleted) {
+        if (SPIFFS.exists(fileName)) {
+            fileDeleted = SPIFFS.remove(fileName);
+            if (fileDeleted) {
+                Serial.println("Datei aus SPIFFS gelöscht: " + fileName);
+            } else {
+                Serial.println("Fehler beim Löschen der Datei aus SPIFFS: " + fileName);
+            }
+        }
+    }
+
+    // Sende die Antwort basierend auf dem Ergebnis
+    if (fileDeleted) {
+        server.send(200, "text/plain", "Datei gelöscht: " + fileName);
+    } else {
+        server.send(404, "text/plain", "Datei nicht gefunden oder konnte nicht gelöscht werden: " + fileName);
     }
 }
 
@@ -460,10 +544,29 @@ void WebServerHandler::handleDownloadFile() {
         fileName = "/" + fileName;
     }
 
-    File file = SPIFFS.open(fileName, "r");
+    File file;
+
+    // Versuche, die Datei zuerst auf der SD-Karte zu öffnen
+    if (SD.begin(5)) { // Beispiel: CS-Pin 5
+        file = SD.open(fileName, "r");
+        if (!file) {
+            Serial.println("Datei nicht auf der SD-Karte gefunden: " + fileName);
+        }
+    } else {
+        Serial.println("SD-Karte konnte nicht initialisiert werden.");
+    }
+
+    // Fallback: Wenn die Datei nicht auf der SD-Karte ist, SPIFFS verwenden
     if (!file) {
-        server.send(404, "text/plain", "Datei nicht gefunden: " + fileName);
-        return;
+        file = SPIFFS.open(fileName, "r");
+        if (!file) {
+            server.send(404, "text/plain", "Datei nicht gefunden: " + fileName);
+            Serial.println("Datei nicht gefunden: " + fileName);
+            return;
+        }
+        Serial.println("Datei aus SPIFFS geöffnet: " + fileName);
+    } else {
+        Serial.println("Datei von der SD-Karte geöffnet: " + fileName);
     }
 
     // Content-Disposition setzen, um den Dateinamen an den Browser zu senden
@@ -472,7 +575,7 @@ void WebServerHandler::handleDownloadFile() {
     file.close();
 }
 
-void WebServerHandler::handleFileUpload() {
+/*void WebServerHandler::handleFileUpload() {
     HTTPUpload& upload = server.upload();
 
     if (upload.status == UPLOAD_FILE_START) {
@@ -504,6 +607,47 @@ void WebServerHandler::handleFileUpload() {
         Serial.println("Upload beendet: " + currentUploadName + " (" + String(upload.totalSize) + " Bytes)");
         if (upload.totalSize == 0) {
             SPIFFS.remove(currentUploadName); // Entferne leere Dateien
+            Serial.println("Leere Datei entfernt: " + currentUploadName);
+        }
+    } else {
+        server.send(500, "text/plain", "Fehler beim Hochladen!");
+    }
+}*/
+
+void WebServerHandler::handleFileUpload() {
+    HTTPUpload& upload = server.upload();
+
+    if (upload.status == UPLOAD_FILE_START) {
+        currentUploadName = upload.filename;
+        if (currentUploadName.isEmpty()) {
+            Serial.println("Kein Dateiname angegeben, Upload abgebrochen.");
+            sendError(400, "Kein Dateiname angegeben");
+            return;
+        }
+        if (!currentUploadName.startsWith("/")) {
+            currentUploadName = "/" + currentUploadName;
+        }
+        Serial.println("Upload gestartet: " + currentUploadName);
+
+        // Öffne die Datei auf der SD-Karte
+        File file = SD.open(currentUploadName, FILE_WRITE);
+        if (!file) {
+            Serial.println("Fehler beim Öffnen der Datei auf der SD-Karte zum Schreiben!");
+            sendError(500, "Fehler beim Öffnen der Datei");
+            return;
+        }
+        file.close();
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        // Schreibe Daten in die Datei auf der SD-Karte
+        File file = SD.open(currentUploadName, FILE_APPEND);
+        if (file) {
+            file.write(upload.buf, upload.currentSize);
+            file.close();
+        }
+    } else if (upload.status == UPLOAD_FILE_END) {
+        Serial.println("Upload beendet: " + currentUploadName + " (" + String(upload.totalSize) + " Bytes)");
+        if (upload.totalSize == 0) {
+            SD.remove(currentUploadName); // Entferne leere Dateien
             Serial.println("Leere Datei entfernt: " + currentUploadName);
         }
     } else {

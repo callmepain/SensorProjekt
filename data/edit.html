@@ -173,7 +173,7 @@
     <script>
         async function loadFile() {
             const params = new URLSearchParams(window.location.search);
-            const fileName = params.get('name');
+            const fileName = params.get('name'); // Enthält z. B. 'SD:files.html' oder 'SPIFFS:index.html'
             const loader = document.getElementById('loader');
             const filenameElem = document.getElementById('filename');
             filenameElem.innerText = fileName;
@@ -182,20 +182,19 @@
 
             try {
                 loader.style.display = 'block'; // Loader anzeigen
-                const response = await fetch(`/api/file?name=${fileName}`);
+                const response = await fetch(`/api/file?name=${encodeURIComponent(fileName)}`);
+                if (!response.ok) {
+                    throw new Error('Datei konnte nicht geladen werden.');
+                }
                 const content = await response.text();
                 textarea.value = content;
-                fileInput.value = fileName;
+                fileInput.value = fileName; // Präfix beibehalten
             } catch (error) {
                 console.error('Fehler beim Laden der Datei:', error);
                 textarea.value = 'Fehler beim Laden der Datei.';
             } finally {
                 loader.style.display = 'none'; // Loader ausblenden
             }
-        }
-
-        function cancelEdit() {
-            window.location.href = '/files.html'; // Zur Dateiliste zurückkehren
         }
 
         loadFile();

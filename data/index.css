@@ -1,0 +1,291 @@
+/* Beispielhaftes Styling für die Meldung */
+#reset-message {
+    position: fixed; 
+    top: 10px; 
+    right: 10px;
+    padding: 10px 15px;
+    background-color: #333;
+    color: #fff;
+    border: 2px solid #FF00FF;
+    border-radius: 5px;
+    font-weight: bold;
+    display: none; /* Start: ausgeblendet */
+    z-index: 9999; /* Damit es oben drüber liegt */
+}
+/* ============ GLOBAL STYLES ============ */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #E0E0E0;
+}
+
+#menu-placeholder {
+    /* Hier kommt dein dynamisch geladenes Menü rein. 
+       Falls du noch spezielle Styles für den Menübalken brauchst, 
+       kannst du das hier tun. */
+}
+
+h1 {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 2rem;
+    background: linear-gradient(90deg, #FF00FF, #8800FF);
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+/* ============ LAYOUT WRAPPER ============ */
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    gap: 40px; 
+    margin-bottom: 40px;
+}
+
+/* ============ OBERE TABELLE (breit) ============ */
+.table-wide {
+    width: 80%;
+    max-width: 1000px; 
+}
+
+.table-wide tbody tr:hover td {
+    background-color: transparent; /* Kein Hover-Highlighting */
+}
+
+/* ============ UNTERE REIHE (2 Tabellen nebeneinander) ============ */
+.table-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    width: 80%;
+    max-width: 1000px; 
+}
+
+.table-row2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    width: 80%;
+    max-width: 1000px; 
+}
+
+.table-row2 tbody tr:hover td {
+    background-color: transparent; /* Kein Hover-Highlighting */
+}
+
+.table-container {
+    flex: 1 1 300px;
+    min-width: 300px;
+}
+
+/* ============ ALLGEMEINES TABELLEN-STYLING ============ */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 2px solid #FF00FF;
+    border-radius: 10px; /* Rundung der Außenkanten */
+    background-color: #1E1E1E;
+    overflow: hidden; /* Damit die Ecken wirklich abgerundet wirken */
+    table-layout: fixed;
+}
+/* -- Kopfzeilen-Design -- */
+thead {
+    /* Keine eigene Hintergrundfarbe hier direkt, 
+       wir machen das in den tr/th, damit die Ränder abgerundet sind */
+}
+/* Die erste Kopfzeile (mit dem colspan) soll die oberen Ecken abrunden */
+thead tr:first-child th {
+    background: linear-gradient(90deg, #FF00FF, #8800FF);
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    border-top-left-radius: 8px;  /* Noch mal speziell abrunden */
+    border-top-right-radius: 8px;
+    border-bottom: 1px solid #FF00FF;
+    text-shadow: -1px -1px 0 #000,
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000;
+}
+
+/* Die zweite Kopfzeile (Parameter/Aktuell/Min/Max/Aktion) */
+thead tr:last-child {
+    background: linear-gradient(90deg, #FF00FF, #8800FF);
+}
+
+thead tr:last-child th {
+    color: #FFFFFF;
+    font-weight: bold;
+    padding: 10px;
+    text-align: left;
+    border-right: 1px solid #FF00FF;
+    border-bottom: 1px solid #FF00FF;
+    text-shadow: -1px -1px 0 #000,
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000;
+}
+
+thead th {
+    text-shadow: -1px -1px 0 #000,
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000;
+}
+
+thead tr:last-child th:last-child {
+    border-right: none;
+}
+
+/* -- Inhalt-Design -- */
+tbody tr:nth-child(even) {
+    background-color: #2A2A2A;
+}
+
+tbody tr:hover td {
+    background-color: #3A3A3A;
+    transition: all 0.3s ease;
+}
+
+tbody th, tbody td {
+    vertical-align: middle;
+    line-height: 1.5;
+    color: #FFFFFF;
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #FF00FF;
+    border-right: 1px solid #FF00FF;
+}
+
+/* Letzte Spalte ohne rechte Linie */
+tbody td:last-child, thead tr:last-child th:last-child {
+    border-right: none;
+}
+
+/* Letzte Zeile ohne untere Linie + abgerundete Ecken, falls gewünscht */
+tbody tr:last-child td {
+    border-bottom: none;
+}
+/* Falls du auch unten abgerundete Ecken willst, brauchst du
+   ggf. :last-child-Selektoren, oder du rundest nur oben ab. */
+
+/* ============ BUTTONS ============ */
+button {
+    width: 100%;
+    padding: 8px 15px;
+    border: 2px solid #33aaff;
+    color: #33aaff;
+    font-size: 14px;
+    font-weight: bold;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+button:hover {
+    background: #33aaff;
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(51, 170, 255, 0.4);
+}
+
+button:active {
+    background: linear-gradient(90deg, #0077CC, #00BBCC); /* Dunklere Cyan-Töne für "Drücken" */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.2); /* Inset-Schatten für Tiefe */
+    transform: translateY(2px); /* Effekt: Knopf wird "gedrückt" */
+}
+
+/* ============ LADE-INDIKATOR ============ */
+#loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #FFFFFF;
+    font-size: 24px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    display: none;
+    text-align: center;
+}
+.loader {
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top: 4px solid #FF00FF;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin: 10px auto;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============ BATTERIE-BALKEN ============ */
+.battery-container {
+    width: 90%;
+    max-width: 300px;
+    height: 20px;
+    border: 2px solid #FF00FF;
+    border-radius: 5px;
+    background-color: #1E1E1E;
+    position: relative;
+    overflow: hidden;
+    margin: 10px auto;
+}
+.battery-progress {
+    height: 100%;
+    width: 0%;
+    transition: width 0.5s ease-in-out, background-color 0.3s ease;
+    box-shadow: 0 2px 5px rgba(255, 0, 255, 0.3);
+    border-radius: 2px;
+}
+.battery-percentage-text {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #FFFFFF;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000,
+                 -1px 1px 0 #000, 1px 1px 0 #000;
+}
+.battery-progress.green {
+    background: linear-gradient(90deg, #33FF33, #009900);
+}
+.battery-progress.orange {
+    background: linear-gradient(90deg, #FFCC00, #FF9900);
+}
+.battery-progress.red {
+    background: linear-gradient(90deg, #FF0000, #990000);
+}
+
+/* Optional: Scrollbar-Anpassungen */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #1E1E1E;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #FF00FF, #8800FF);
+    border-radius: 10px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #8800FF, #FF00FF);
+}
+canvas {
+    margin: 10px auto;
+    display: block;
+}

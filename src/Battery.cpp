@@ -141,8 +141,15 @@ float Battery::calculateRemainingTime() {
     }
 
     int soc = calculateSOC(avgVoltage);
-    float remainingCapacity = (batteryCapacity * soc) / 100.0;
-    return remainingCapacity / avgCurrent;
+
+    // Batterie-Entladung nicht unter 20 % zulassen
+    if (soc <= 20) {
+        return 0; // Batterie ist auf Minimum
+    }
+
+    // Berechnung der verbleibenden Kapazität ab 20 % SOC
+    float usableCapacity = (batteryCapacity * (soc - 20)) / 100.0;
+    return usableCapacity / avgCurrent;
 }
 
 // Gesamtenergie
