@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>ESP32 Dashboard</title>
+    <style>
+        /* Basis-Styles */
+        :root {
+            --primary: #FF00FF;
+            --secondary: #8800FF;
+            --bg-dark: #121212;
+            --bg-darker: #1E1E1E;
+            --text-light: #E0E0E0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+        }
+
+        /* Menü-Styles */
+        .menu {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: var(--bg-darker);
+            padding: 10px 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            border-bottom: 2px solid var(--primary);
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+            z-index: 1000;
+        }
+
+        .menu-item {
+            color: var(--text-light);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+        }
+
+        /* Content-Bereich */
+        #content {
+            margin-top: 60px;
+            padding: 20px;
+        }
+
+        /* Gemeinsame Komponenten-Styles */
+        .card {
+            background: var(--bg-darker);
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+        }
+
+        /* ... weitere Styles aus Ihren bestehenden Dateien ... */
+    </style>
+</head>
+<body>
+    <nav class="menu">
+        <a href="#dashboard" class="menu-item">Dashboard</a>
+        <a href="#charts" class="menu-item">Charts</a>
+        <a href="#files" class="menu-item">Dateien</a>
+        <a href="#config" class="menu-item">Config</a>
+        <a href="#ota" class="menu-item">OTA Update</a>
+    </nav>
+
+    <main id="content"></main>
+
+    <!-- Templates für verschiedene Views -->
+    <template id="dashboard-template">
+        <div class="dashboard">
+            <h1>ESP32 Umgebungsdaten</h1>
+            <div class="gauges-container">
+                <div class="gauge-card">
+                    <canvas id="temperatureGauge"></canvas>
+                </div>
+                <!-- ... weitere Gauges ... -->
+            </div>
+            <div class="controls">
+                <button onclick="DASHBOARD.resetMinMax()">Reset Min/Max</button>
+                <button onclick="DASHBOARD.toggleDisplay('on')">Display An</button>
+                <button onclick="DASHBOARD.toggleDisplay('off')">Display Aus</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Weitere Templates für andere Views -->
+
+    <script type="module">
+        // Router und App-Initialisierung
+        import { initRouter } from './js/router.js';
+        import { initApp } from './js/app.js';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            initRouter();
+        });
+    </script>
+</body>
+</html>

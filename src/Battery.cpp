@@ -1,14 +1,13 @@
 #include "Battery.h"
 #include "INA219Manager.h"
-#include "TelnetLogger.h"
+#include "SDCardLogger.h"
 
-extern TelnetLogger logger;
 extern INA219Manager ina2;
 
 
 // Konstruktor
-Battery::Battery(int capacity, const char* path) 
-    : batteryCapacity(capacity), filePath(path), sampleIndex(0)
+Battery::Battery(int capacity, const char* path, SDCardLogger& logger) 
+    : batteryCapacity(capacity), filePath(path), sampleIndex(0), sdLogger(logger)
 {
     for (int i = 0; i < SAMPLE_SIZE; i++) {
         voltageSamples[i] = 0;
@@ -19,7 +18,7 @@ Battery::Battery(int capacity, const char* path)
 void Battery::initialize() {
     // JSON-Daten laden, nachdem das Dateisystem initialisiert wurde
     loadFromJson();
-    Serial.println("Battery erfolgreich initialisiert.");
+    sdLogger.logInfo("Battery erfolgreich initialisiert.");
 }
 
 // Initialisierungsmethode für Samples
@@ -45,14 +44,12 @@ void Battery::saveToJson(float energy) {
 
     File file = SPIFFS.open(filePath, FILE_WRITE);
     if (!file) {
-        Serial.println("Fehler beim Öffnen der Datei zum Schreiben");
+        sdLogger.logError("Fehler beim Öffnen der Datei zum Schreiben");
         return;
     }
 
     if (serializeJson(doc, file) == 0) {
-        Serial.println("Fehler beim Schreiben der JSON-Daten");
-    } else {
-        //Serial.println("Energie Daten erfolgreich gespeichert.");
+        sdLogger.logError("Fehler beim Schreiben der JSON-Daten");
     }
     file.close();
 }
@@ -61,15 +58,14 @@ void Battery::saveToJson(float energy) {
 void Battery::loadFromJson() {
     File file = SPIFFS.open(filePath, FILE_READ);
     if (!file) {
-        Serial.println("Fehler beim Öffnen der Datei zum Lesen");
+        sdLogger.logError("Fehler beim Öffnen der Datei zum Lesen");
         return;
     }
 
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, file);
     if (error) {
-        Serial.print("Fehler beim Lesen der JSON-Daten: ");
-        Serial.println(error.c_str());
+        sdLogger.logError("Fehler beim Lesen der JSON-Daten: " + String(error.c_str()));
         return;
     }
 
@@ -80,27 +76,40 @@ void Battery::loadFromJson() {
     }
 
     file.close();
-    Serial.println("Energie Daten erfolgreich geladen.");
+    sdLogger.logInfo("Energie Daten erfolgreich geladen.");
 }
 
 // Ladezeit berechnen
 float Battery::calculateChargingTime(float current_mA) {
+    // Durchschnittliche Batteriespannung ermitteln
     float avgVoltage = getSmoothedVoltage();
+    
+    // Aktuellen Ladezustand (SOC) berechnen
     int soc = calculateSOC(avgVoltage);
+    
+    // Berechnung der verbleibenden Kapazität in mAh
     float remainingCapacity_mAh = batteryCapacity * (100 - soc) / 100.0;
-
+    
+    // Überprüfen, ob überhaupt ein Ladestrom vorhanden ist
     if (current_mA == 0) {
-        return -1;  // kein Ladestrom
+        return -1;  // kein Ladestrom -> Ladezeit nicht berechenbar
     }
-
-    // Ladestrom positiv machen
+    
+    // Ladestrom absolut betrachten (in mA)
     float positiveCurrent_mA = fabs(current_mA);
-
-    float chargingTime = remainingCapacity_mAh / positiveCurrent_mA;
-    float efficiency = 0.9; 
-    chargingTime /= efficiency;
-
-    return chargingTime;  // Stunden
+    
+    // Dynamische Effizienz: Im Ladebereich (SOC < 50) geht man oft von einer relativ hohen Effizienz aus,
+    // während im oberen Bereich (z.B. CV-Phase) mehr Verluste entstehen.
+    float efficiency = (soc < 50) ? 0.95 : 0.80;
+    
+    // Zusätzlich kann in der Endphase ein fester Zeitoffset berücksichtigt werden,
+    // um z.B. die durch das CV-Ladeverhalten entstehende verlängerte Ladezeit abzubilden.
+    float baselineTimeOffset = 0.5; // in Stunden, anpassbar je nach Batteriecharakteristik
+    
+    // Berechnung der Ladezeit in Stunden
+    float chargingTime = (remainingCapacity_mAh / positiveCurrent_mA) / efficiency + baselineTimeOffset;
+    
+    return chargingTime;  
 }
 
 // Update-Daten

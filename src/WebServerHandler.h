@@ -5,10 +5,11 @@
 #include "SensorHandler.h"
 #include <FS.h>    // Für das generische Dateisystem
 #include <SPIFFS.h> // Für SPIFFS-spezifische Funktionen
+#include "SDCardLogger.h"
 
 class WebServerHandler {
 public:
-    WebServerHandler(SensorHandler& sensorHandler);
+    WebServerHandler(SensorHandler& sensorHandler, SDCardLogger& logger);
 
     void init();
     void handleClient();
@@ -35,6 +36,7 @@ public:
 private:
     WebServer server;
     SensorHandler& sensorHandler;
+    SDCardLogger& sdLogger;
 
     std::vector<float> voltageSamples;
 
@@ -47,10 +49,13 @@ private:
     String getContentType(const String& path);
     bool streamFileFromSPIFFS(const String& path, const char* contentType);
     bool streamFileFromSD(const String& path, const char* contentType);
+    void listDirectory(File dir, String path, String& json, bool& firstEntry);
 
     // Hilfsfunktionen
     File openFile(String path, const char* mode);
     void sendError(int code, String message);
+    String escapeJsonString(const String& input);
+    void createDirectoryPath(fs::FS &fs, String path);
 };
 
 #endif // WEBSERVERHANDLER_H

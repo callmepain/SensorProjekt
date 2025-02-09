@@ -6,11 +6,12 @@
 #include <SPIFFS.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "SDCardLogger.h"
 
 class Battery {
 private:
     const char* filePath;
-    static const int SAMPLE_SIZE = 20;  
+    static const int SAMPLE_SIZE = 5;  
     float voltageSamples[SAMPLE_SIZE];
     float currentSamples[SAMPLE_SIZE];
     int voltageSampleIndex = 0; // Index für voltageSamples
@@ -23,6 +24,8 @@ private:
     TaskHandle_t taskHandle = nullptr;
     uint32_t taskDelayMs;
 
+    SDCardLogger& sdLogger;  // Neue Referenz
+
     void addSample(float *samples, int &sampleIndex, float newSample);
     void saveToJson(float energy);
 
@@ -31,7 +34,7 @@ private:
 
 public:
     // Konstruktor
-    Battery(int capacity, const char* path);
+    Battery(int capacity, const char* path, SDCardLogger& logger);
     void initialize();
 
     // Methoden

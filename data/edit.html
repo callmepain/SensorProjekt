@@ -158,6 +158,10 @@
         <h1>Datei bearbeiten</h1>
         <h2 id="filename">Datei bearbeiten</h2>
 
+        <div class="file-info">
+            Bearbeite: <span id="displayFileName"></span>
+        </div>
+
         <form method="POST" action="/save">
             <textarea name="content" id="file-content"></textarea>
             <input type="hidden" name="name" id="file-name">
@@ -171,33 +175,78 @@
     </div>
 
     <script>
-        async function loadFile() {
-            const params = new URLSearchParams(window.location.search);
-            const fileName = params.get('name'); // Enthält z. B. 'SD:files.html' oder 'SPIFFS:index.html'
-            const loader = document.getElementById('loader');
-            const filenameElem = document.getElementById('filename');
-            filenameElem.innerText = fileName;
-            const textarea = document.getElementById('file-content');
-            const fileInput = document.getElementById('file-name');
-
-            try {
-                loader.style.display = 'block'; // Loader anzeigen
-                const response = await fetch(`/api/file?name=${encodeURIComponent(fileName)}`);
-                if (!response.ok) {
-                    throw new Error('Datei konnte nicht geladen werden.');
+        document.addEventListener('DOMContentLoaded', async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fileName = urlParams.get('name');
+            
+            if (fileName) {
+                console.log('Loading file:', fileName); // Debug-Ausgabe
+                document.getElementById('file-name').value = fileName; // Setze den vollständigen Pfad mit Präfix
+                document.getElementById('displayFileName').textContent = fileName; // Zeige den Pfad an
+                
+                try {
+                    const response = await fetch(`/api/content?name=${encodeURIComponent(fileName)}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const content = await response.text();
+                    document.getElementById('file-content').value = content;
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Fehler beim Laden der Datei: ' + error.message);
                 }
-                const content = await response.text();
-                textarea.value = content;
-                fileInput.value = fileName; // Präfix beibehalten
+            }
+        });
+
+        // Beim Speichern
+        async function saveFile() {
+            const fullPath = document.getElementById('fileName').value;
+            const content = document.getElementById('editor').value;
+            
+            console.log('Preparing to save file:', fullPath);
+            console.log('Content length:', content.length);
+            
+            const data = {
+                name: fullPath,
+                content: content
+            };
+            
+            const jsonString = JSON.stringify(data);
+            console.log('JSON string length:', jsonString.length);
+            console.log('First 100 chars of JSON:', jsonString.substring(0, 100));
+            
+            try {
+                console.log('Sending request...');
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/plain'
+                    },
+                    body: jsonString
+                });
+                
+                console.log('Response status:', response.status);
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                if (!response.ok) {
+                    throw new Error(responseText || `HTTP error! status: ${response.status}`);
+                }
+                
+                window.location.href = '/files.html?saved=true&path=' + encodeURIComponent(fullPath.substring(0, fullPath.lastIndexOf('/')));
             } catch (error) {
-                console.error('Fehler beim Laden der Datei:', error);
-                textarea.value = 'Fehler beim Laden der Datei.';
-            } finally {
-                loader.style.display = 'none'; // Loader ausblenden
+                console.error('Error details:', error);
+                alert('Fehler beim Speichern der Datei: ' + error.message);
             }
         }
 
-        loadFile();
+        // Optional: Funktion zum Abbrechen
+        function cancelEdit() {
+            const fullPath = document.getElementById('file-name').value;
+            const basePath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+            window.location.href = '/files.html?path=' + encodeURIComponent(basePath);
+        }
     </script>
 </body>
 </html>

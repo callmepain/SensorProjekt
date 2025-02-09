@@ -1,7 +1,7 @@
 #include "MenuConfig.h"
 
 std::vector<String> mainMenuItems = {
-    "Sensorwerte", "Uhr", "Strom", "Batterie", "Distanz", "Lux", "Wifi", "Einstellungen"
+    "Sensorwerte", "Uhr", "Strom", "Batterie", "Lux", "Wifi", "Einstellungen"
 };
 Menu mainMenu(mainMenuItems);
 

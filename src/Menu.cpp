@@ -1,13 +1,11 @@
 #include "Menu.h"
 #include "ConfigManager.h"
-#include "LEDControl.h"
 #include "DisplayConfig.h"
 
 int test = 1;
 // Definition von externen Variablen (müssen im Hauptprogramm deklariert sein)
 extern Adafruit_SSD1306 display;
 extern Settings settings;
-extern LEDControl ledControl;
 
 void drawNavBar(const char* left, const char* right) {
     display.fillRect(0, 54, SCREEN_WIDTH, 10, WHITE);  // Hintergrund zeichnen
@@ -98,12 +96,14 @@ void SubMenu::toggleSelectedItem() {
             btStop();  // Bluetooth deaktivieren
         }
     } else if (selected == "ledStrip") {
+        // Relais umschalten. Konfiguration aktualisieren
         config.led_enable = !config.led_enable;
-        Serial.println("LED Strip toggled to: " + String(config.led_enable ? "ON" : "OFF"));
         if (config.led_enable) {
-            ledControl.turnOn();
+            Serial.println("Relais aktiviert");
+            digitalWrite(17, HIGH); // Aktivierung des Relais, ggf. HIGH oder LOW, je nach Modul
         } else {
-            ledControl.turnOff();
+            Serial.println("Relais deaktiviert");
+            digitalWrite(17, LOW);  // Deaktivierung des Relais
         }
     }
 
