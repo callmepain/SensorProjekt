@@ -12,5 +12,6 @@ extern Adafruit_SSD1306 display;
 // Prototypen für Display-Funktionen
 void setDisplayState(bool state);
 bool isDisplayOn();
+bool getDisplayState();
 
 #endif

@@ -17,7 +17,8 @@ void SensorHandler::init() {
 
     if (!bmeInitialized) {
         Serial.println("Keine Sensoren verfügbar. Fortsetzung ohne Sensordaten.");
-    }Serial.println("Sensoren erfolgreich initialisiert.");
+    } 
+    Serial.println("Sensoren erfolgreich initialisiert.");
 }
 
 void SensorHandler::updateSensors() {

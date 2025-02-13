@@ -6,8 +6,8 @@ extern INA219Manager ina2;
 
 
 // Konstruktor
-Battery::Battery(int capacity, const char* path, SDCardLogger& logger) 
-    : batteryCapacity(capacity), filePath(path), sampleIndex(0), sdLogger(logger)
+Battery::Battery(int capacity, const char* path, SDCardLogger& logger, float resistance) 
+    : batteryCapacity(capacity), filePath(path), sampleIndex(0), sdLogger(logger), internalResistance(resistance)
 {
     for (int i = 0; i < SAMPLE_SIZE; i++) {
         voltageSamples[i] = 0;
@@ -128,9 +128,26 @@ void Battery::update(float voltage, float current_mA, float energy_mWh) {
 
 // State of Charge berechnen
 int Battery::calculateSOC(float voltage) {
-    if (voltage >= 4.2) return 100;
-    if (voltage <= 3.3) return 0;
-    return (int)((voltage - 3.3) / (4.2 - 3.3) * 100);
+    // Spannung unter Last korrigieren
+    float current = getCurrentSigned(); // in mA
+    float voltageDropIR = (current / 1000.0f) * internalResistance;
+    float openCircuitVoltage = voltage + voltageDropIR;
+    
+    // Verbesserte SOC-Berechnung für LiPo Akkus
+    if (openCircuitVoltage >= 4.2) return 100;
+    if (openCircuitVoltage <= 3.1) return 0;  // Neue untere Grenze
+    
+    // Nicht-lineare Interpolation für genauere Werte
+    if (openCircuitVoltage >= 3.9) {
+        // 70-100% Bereich
+        return 70 + (openCircuitVoltage - 3.9) * 100;
+    } else if (openCircuitVoltage >= 3.7) {
+        // 30-70% Bereich
+        return 30 + (openCircuitVoltage - 3.7) * 200;
+    } else {
+        // 0-30% Bereich: Linear von 3.1V bis 3.7V
+        return (openCircuitVoltage - 3.1) * 50;  // Angepasst für neue Grenze
+    }
 }
 
 // Verbleibende Zeit berechnen
@@ -145,20 +162,40 @@ float Battery::calculateRemainingTime() {
     avgVoltage /= SAMPLE_SIZE;
     avgCurrent /= SAMPLE_SIZE;
 
+    // Korrigiere die Spannung um den Spannungsabfall am Innenwiderstand
+    float voltageDropIR = (avgCurrent / 1000.0f) * internalResistance;
+    float openCircuitVoltage = avgVoltage + voltageDropIR;
+
     if (avgCurrent < 1.0) {
         return -1; // zu niedriger Verbrauch
     }
 
-    int soc = calculateSOC(avgVoltage);
+    int soc = calculateSOC(openCircuitVoltage);
 
     // Batterie-Entladung nicht unter 20 % zulassen
     if (soc <= 20) {
         return 0; // Batterie ist auf Minimum
     }
 
+    // Berechne Effizienz basierend auf Strom und Spannung
+    float efficiency = 0.95; // Basis-Effizienz
+    if (avgCurrent > 500) {
+        // Bei höherem Strom sinkt die Effizienz
+        efficiency = 0.95 - ((avgCurrent - 500) / 1500) * 0.1;
+    }
+    
     // Berechnung der verbleibenden Kapazität ab 20 % SOC
     float usableCapacity = (batteryCapacity * (soc - 20)) / 100.0;
-    return usableCapacity / avgCurrent;
+    
+    // Zeit in Stunden = (Kapazität in mAh * Effizienz) / (Strom in mA)
+    float remainingTime = (usableCapacity * efficiency) / avgCurrent;
+    
+    // Berücksichtige zusätzliche Verluste bei niedrigem SOC
+    if (soc < 50) {
+        remainingTime *= (0.8 + (soc / 50.0) * 0.2);
+    }
+    
+    return remainingTime;
 }
 
 // Gesamtenergie
@@ -221,4 +258,20 @@ void Battery::updateTask(void *param) {
         // Warte das angegebene Intervall ab
         vTaskDelay(self->taskDelayMs / portTICK_PERIOD_MS);
     }
+}
+
+// Aktuellen Strom abrufen (ohne Glättung)
+float Battery::getCurrent() {
+    return ina2.getCurrent_mA();
+}
+
+// Optional: Aktuellen Strom mit Vorzeichen
+// Positiv = Entladung, Negativ = Ladung
+float Battery::getCurrentSigned() {
+    return -ina2.getCurrent_mA(); // Vorzeichen umkehren für intuitivere Darstellung
+}
+
+// Aktuelle Leistung in mW
+float Battery::getPower() {
+    return ina2.getBusPower_mW();
 }

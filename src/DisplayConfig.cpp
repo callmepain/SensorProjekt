@@ -17,3 +17,7 @@ void setDisplayState(bool state) {
 bool isDisplayOn() {
     return displayOn;
 }
+
+bool getDisplayState() {
+    return displayOn;
+}

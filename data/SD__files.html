@@ -245,28 +245,225 @@
         })
         .catch(error => console.error('Fehler beim Laden des Menüs:', error));
 
-        async function fetchFileList() {
-            const response = await fetch('/api/files');
-            const files = await response.json();
-            const fileList = document.getElementById('file-list');
-            fileList.innerHTML = '';
+        // Neue Funktion zum Erstellen der Datei/Ordner-Zeile
+        function createTableRow(item, currentPath = '') {
+            const row = document.createElement('tr');
+            const isDirectory = item.type === 'dir';
+            const fullPath = currentPath + item.name;
+            
+            row.innerHTML = `
+                <td>
+                    ${isDirectory ? 
+                        `<span style="cursor: pointer" onclick="toggleFolder('${fullPath}')">
+                            📁 ${item.name}
+                        </span>` : 
+                        `📄 ${item.name}`}
+                </td>
+                <td>${isDirectory ? '-' : item.size + ' Bytes'}</td>
+                <td>
+                    ${isDirectory ? 
+                        '' : 
+                        `<button class="download-button" onclick="location.href='/download?name=${fullPath}'">Download</button>
+                         <button class="delete-button" onclick="deleteFile('${fullPath}')">Löschen</button>
+                         <button class="edit-button" onclick="editFile('${fullPath}')">Edit</button>`
+                    }
+                </td>
+            `;
+            return row;
+        }
 
-            files.forEach(file => {
-                const source = file.name.startsWith('SPIFFS:') ? 'SPIFFS' : 'SD';
-                const displayName = file.name.replace(/^SPIFFS:|^SD:/, ''); // Entfernt das Präfix
+        // Modifizierte fetchFileList Funktion
+        async function fetchFileList(path = '') {
+            try {
+                console.log('Fetching files for path:', path);
+                const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
+                const items = await response.json();
+                console.log('Received items:', items);
+                
+                const fileList = document.getElementById('file-list');
+                
+                // Sortiere Einträge: Ordner zuerst, dann Dateien
+                const sortedItems = items.sort((a, b) => {
+                    if (a.type === b.type) return a.name.localeCompare(b.name);
+                    return a.type === 'dir' ? -1 : 1;
+                });
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${displayName}</td>
-                    <td>${file.size} Bytes</td>
-                    <td>
-                        <button class="download-button" onclick="location.href='/download?name=${file.name}'">Download</button>
-                        <button class="delete-button" onclick="deleteFile('${file.name}')">Löschen</button>
-                        <button class="edit-button" onclick="location.href='/edit?name=${file.name}'">Edit</button>
-                    </td>
+                fileList.innerHTML = '';
+                
+                // Wenn wir im Root-Verzeichnis sind, zeige beide Dateisysteme an
+                if (!path) {
+                    // SPIFFS Ordner
+                    const spiffsRow = document.createElement('tr');
+                    spiffsRow.innerHTML = `
+                        <td>
+                            <span style="cursor: pointer" onclick="toggleFolder('SPIFFS:')">
+                                📁 SPIFFS:
+                            </span>
+                        </td>
+                        <td>-</td>
+                        <td></td>
+                    `;
+                    fileList.appendChild(spiffsRow);
+                    
+                    // Container für SPIFFS Inhalt
+                    const spiffsContainer = document.createElement('tr');
+                    spiffsContainer.id = 'folder-SPIFFS:';
+                    spiffsContainer.style.display = 'none';
+                    spiffsContainer.innerHTML = `
+                        <td colspan="3" style="padding-left: 30px">
+                            <div id="content-SPIFFS:"></div>
+                        </td>
+                    `;
+                    fileList.appendChild(spiffsContainer);
+
+                    // SD Ordner
+                    const sdRow = document.createElement('tr');
+                    sdRow.innerHTML = `
+                        <td>
+                            <span style="cursor: pointer" onclick="toggleFolder('SD:')">
+                                📁 SD:
+                            </span>
+                        </td>
+                        <td>-</td>
+                        <td></td>
+                    `;
+                    fileList.appendChild(sdRow);
+                    
+                    // Container für SD Inhalt
+                    const sdContainer = document.createElement('tr');
+                    sdContainer.id = 'folder-SD:';
+                    sdContainer.style.display = 'none';
+                    sdContainer.innerHTML = `
+                        <td colspan="3" style="padding-left: 30px">
+                            <div id="content-SD:"></div>
+                        </td>
+                    `;
+                    fileList.appendChild(sdContainer);
+                } else {
+                    // Normaler Ordnerinhalt anzeigen
+                    sortedItems.forEach(item => {
+                        const prefix = path.startsWith('SD:') ? 'SD:' : 'SPIFFS:';
+                        const fullPath = path ? `${path}/${item.name}`.replace(/\/+/g, '/') : `${prefix}${item.name}`;
+                        
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td style="padding-left: 20px">
+                                ${item.type === 'dir' ? 
+                                    `<span style="cursor: pointer" onclick="toggleFolder('${fullPath}')">
+                                        📁 ${item.name}
+                                    </span>` : 
+                                    `📄 ${item.name}`}
+                            </td>
+                            <td>${item.type === 'dir' ? '-' : item.size + ' Bytes'}</td>
+                            <td>
+                                ${item.type === 'dir' ? '' : 
+                                `<button class="download-button" onclick="location.href='/download?name=${fullPath}'">Download</button>
+                                 <button class="delete-button" onclick="deleteFile('${fullPath}')">Löschen</button>
+                                 <button class="edit-button" onclick="editFile('${fullPath}')">Edit</button>`}
+                            </td>
+                        `;
+                        fileList.appendChild(row);
+                        
+                        if (item.type === 'dir') {
+                            const subContainer = document.createElement('tr');
+                            subContainer.id = `folder-${fullPath}`;
+                            subContainer.style.display = 'none';
+                            subContainer.innerHTML = `
+                                <td colspan="3" style="padding-left: 40px">
+                                    <div id="content-${fullPath}"></div>
+                                </td>
+                            `;
+                            fileList.appendChild(subContainer);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching file list:', error);
+                document.getElementById('file-list').innerHTML = `
+                    <tr>
+                        <td colspan="3">Fehler beim Laden der Dateiliste: ${error.message}</td>
+                    </tr>
                 `;
-                fileList.appendChild(row);
-            });
+            }
+        }
+
+        // Modifizierte toggleFolder Funktion
+        async function toggleFolder(path) {
+            const folderId = `folder-${path}`;
+            const folderElement = document.getElementById(folderId);
+            const contentId = `content-${path}`;
+            
+            if (folderElement.style.display === 'none') {
+                folderElement.style.display = 'table-row';
+                try {
+                    console.log('Requesting path:', path);
+                    const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
+                    const items = await response.json();
+                    console.log('Received items:', items);
+                    
+                    if (!Array.isArray(items) || items.length === 0) {
+                        const contentElement = document.getElementById(contentId);
+                        contentElement.innerHTML = `
+                            <table style="width: 100%; margin: 0;">
+                                <tbody>
+                                    <tr>
+                                        <td colspan="3">Ordner ist leer</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        `;
+                        return;
+                    }
+
+                    const prefix = path.startsWith('SD:') ? 'SD:' : 'SPIFFS:';
+                    const contentElement = document.getElementById(contentId);
+                    contentElement.innerHTML = `
+                        <table style="width: 100%; margin: 0;">
+                            <tbody>
+                                ${items.map(item => {
+                                    const fullPath = `${path}/${item.name}`.replace(/\/+/g, '/');
+                                    return `<tr>
+                                        <td style="padding-left: 20px">
+                                            ${item.type === 'dir' ? 
+                                                `<span style="cursor: pointer" onclick="toggleFolder('${fullPath}')">
+                                                    📁 ${item.name}
+                                                </span>` : 
+                                                `📄 ${item.name}`}
+                                        </td>
+                                        <td>${item.type === 'dir' ? '-' : item.size + ' Bytes'}</td>
+                                        <td>
+                                            ${item.type === 'dir' ? '' : 
+                                            `<button class="download-button" onclick="location.href='/download?name=${fullPath}'">Download</button>
+                                             <button class="delete-button" onclick="deleteFile('${fullPath}')">Löschen</button>
+                                             <button class="edit-button" onclick="editFile('${fullPath}')">Edit</button>`}
+                                        </td>
+                                    </tr>
+                                    ${item.type === 'dir' ? `
+                                    <tr id="folder-${fullPath}" style="display: none;">
+                                        <td colspan="3" style="padding-left: 40px">
+                                            <div id="content-${fullPath}"></div>
+                                        </td>
+                                    </tr>` : ''}`
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } catch (error) {
+                    console.error('Error fetching folder contents:', error);
+                    const contentElement = document.getElementById(contentId);
+                    contentElement.innerHTML = `
+                        <table style="width: 100%; margin: 0;">
+                            <tbody>
+                                <tr>
+                                    <td colspan="3">Fehler beim Laden des Ordnerinhalts: ${error.message}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                }
+            } else {
+                folderElement.style.display = 'none';
+            }
         }
 
         async function fetchStorageInfo() {
@@ -347,6 +544,32 @@
                 setTimeout(() => {
                     successMessage.style.display = 'none';
                 }, 10000); // z.B. nach 10 Sek. ausblenden
+            }
+        }
+
+        // Neue Hilfsfunktion zum Laden der Datei
+        async function loadFileContent(fullPath) {
+            try {
+                console.log('Loading file content for:', fullPath);
+                const response = await fetch(`/api/content?name=${encodeURIComponent(fullPath)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const content = await response.text();
+                console.log('Content loaded, length:', content.length);
+                return content;
+            } catch (error) {
+                console.error('Error loading file:', error);
+                alert('Fehler beim Laden der Datei: ' + error.message);
+                return null;
+            }
+        }
+
+        // Modifizierte Edit-Button-Funktion
+        async function editFile(fullPath) {
+            const content = await loadFileContent(fullPath);
+            if (content !== null) {
+                location.href = `/edit?name=${encodeURIComponent(fullPath)}`;
             }
         }
 

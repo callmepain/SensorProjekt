@@ -19,6 +19,7 @@ private:
     int sampleIndex;
     float totalEnergy;     
     int batteryCapacity;
+    float internalResistance; // in Ohm
 
     // Task-Variablen
     TaskHandle_t taskHandle = nullptr;
@@ -34,7 +35,7 @@ private:
 
 public:
     // Konstruktor
-    Battery(int capacity, const char* path, SDCardLogger& logger);
+    Battery(int capacity, const char* path, SDCardLogger& logger, float resistance = 0.03);
     void initialize();
 
     // Methoden
@@ -53,6 +54,11 @@ public:
     void startUpdateTask(uint32_t intervalMs = 1000, 
                          UBaseType_t priority = 1, 
                          BaseType_t coreID = 1);
+
+    // Neue Funktionen
+    float getCurrent();        // Aktuellen Strom in mA
+    float getCurrentSigned();  // Strom mit Vorzeichen (+ = Entladung, - = Ladung)
+    float getPower();         // Aktuelle Leistung in mW
 };
 
 #endif

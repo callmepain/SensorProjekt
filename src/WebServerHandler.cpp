@@ -111,7 +111,7 @@ void WebServerHandler::init() {
                 "<html lang='de'>"
                 "<head>"
                 "<meta charset='UTF-8'>"
-                "<meta http-equiv='refresh' content='15; url=/index.html'>"
+                "<meta http-equiv='refresh' content='15; url=/app.html'>"
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
                 "<title>OTA Update</title>"
                 "<style>"
@@ -306,6 +306,42 @@ void WebServerHandler::init() {
         } else {
             server.send(404, "application/json", "{\"error\":\"Configuration file not found\"}");
         }
+    });
+
+    // Logs API
+    server.on("/api/logs", HTTP_GET, [this]() {
+        File logFile = SD.open("/system.log", FILE_READ);
+        if (!logFile) {
+            server.send(404, "text/plain", "Log-Datei nicht gefunden");
+            return;
+        }
+        server.streamFile(logFile, "text/plain");
+        logFile.close();
+    });
+
+    server.on("/api/logs", HTTP_DELETE, [this]() {
+        sdLogger.clearLog();
+        server.send(200, "application/json", "{\"message\":\"Logs gelöscht\"}");
+    });
+
+    server.on("/api/logs/download", HTTP_GET, [this]() {
+        if (sdLogger.exportLogs("/exported_logs.txt")) {
+            File exportFile = SD.open("/exported_logs.txt", FILE_READ);
+            if (exportFile) {
+                server.streamFile(exportFile, "text/plain");
+                exportFile.close();
+                SD.remove("/exported_logs.txt");
+                return;
+            }
+        }
+        server.send(500, "text/plain", "Fehler beim Exportieren der Logs");
+    });
+
+    // Display Status API
+    server.on("/api/display/status", HTTP_GET, [this]() {
+        bool state = getDisplayState();
+        server.send(200, "application/json", 
+            "{\"display_state\":\"" + String(state ? "on" : "off") + "\"}");
     });
 
     server.begin();
@@ -693,7 +729,8 @@ void WebServerHandler::handleSaveFile() {
     }
 
     if (success) {
-        server.send(200, "text/plain", "Datei erfolgreich gespeichert");
+        server.sendHeader("Location", "/app.html#files?saved=true");
+        server.send(303);
     } else {
         server.send(500, "text/plain", "Fehler beim Speichern der Datei");
     }
@@ -726,42 +763,46 @@ void WebServerHandler::handleDeleteFile() {
     }
     String fileName = server.arg("name");
 
-    // Prüfen, ob der Dateiname mit '/' beginnt
-    if (!fileName.startsWith("/")) {
-        fileName = "/" + fileName;
+    // Extrahiere Dateisystem und Pfad
+    String filesystem = "SPIFFS";  // Standard
+    String actualPath = fileName;
+    
+    if (fileName.startsWith("SD:")) {
+        filesystem = "SD";
+        actualPath = fileName.substring(3); // Entferne "SD:"
+    } else if (fileName.startsWith("SPIFFS:")) {
+        actualPath = fileName.substring(7); // Entferne "SPIFFS:"
+    }
+
+    // Stelle sicher, dass der Pfad mit '/' beginnt
+    if (!actualPath.startsWith("/")) {
+        actualPath = "/" + actualPath;
     }
 
     bool fileDeleted = false;
-
-    // Versuche, die Datei auf der SD-Karte zu löschen
-    if (SD.begin(5)) { // Beispiel: CS-Pin 5
-        if (SD.exists(fileName)) {
-            fileDeleted = SD.remove(fileName);
+    if (filesystem == "SD") {
+        if (SD.exists(actualPath)) {
+            fileDeleted = SD.remove(actualPath);
             if (fileDeleted) {
-                sdLogger.logInfo("Datei von der SD-Karte gelöscht: " + fileName);
+                sdLogger.logInfo("Datei von SD gelöscht: " + actualPath);
             } else {
-                sdLogger.logError("Fehler beim Löschen der Datei von der SD-Karte: " + fileName);
+                sdLogger.logError("Fehler beim Löschen der Datei von SD: " + actualPath);
             }
         }
-    } else {
-        sdLogger.logError("SD-Karte konnte nicht initialisiert werden.");
-    }
-
-    // Wenn die Datei nicht auf der SD-Karte gelöscht wurde, versuche SPIFFS
-    if (!fileDeleted) {
-        if (SPIFFS.exists(fileName)) {
-            fileDeleted = SPIFFS.remove(fileName);
+    } else {  // SPIFFS
+        if (SPIFFS.exists(actualPath)) {
+            fileDeleted = SPIFFS.remove(actualPath);
             if (fileDeleted) {
-                sdLogger.logInfo("Datei aus SPIFFS gelöscht: " + fileName);
+                sdLogger.logInfo("Datei aus SPIFFS gelöscht: " + actualPath);
             } else {
-                sdLogger.logError("Fehler beim Löschen der Datei aus SPIFFS: " + fileName);
+                sdLogger.logError("Fehler beim Löschen der Datei aus SPIFFS: " + actualPath);
             }
         }
     }
 
-    // Sende die Antwort basierend auf dem Ergebnis
     if (fileDeleted) {
-        server.send(200, "text/plain", "Datei gelöscht: " + fileName);
+        server.sendHeader("Location", "/app.html#files?deleted=true");
+        server.send(303);
     } else {
         server.send(404, "text/plain", "Datei nicht gefunden oder konnte nicht gelöscht werden: " + fileName);
     }
@@ -808,134 +849,6 @@ void WebServerHandler::handleDownloadFile() {
     server.sendHeader("Content-Disposition", "attachment; filename=" + fileName.substring(1));
     server.streamFile(file, "application/octet-stream");
     file.close();
-}
-
-/*void WebServerHandler::handleFileUpload() {
-    HTTPUpload& upload = server.upload();
-
-    if (upload.status == UPLOAD_FILE_START) {
-        currentUploadName = upload.filename;
-        if (currentUploadName.isEmpty()) {
-            Serial.println("Kein Dateiname angegeben, Upload abgebrochen.");
-            sendError(400, "Kein Dateiname angegeben");
-            return;
-        }
-        if (!currentUploadName.startsWith("/")) {
-            currentUploadName = "/" + currentUploadName;
-        }
-        Serial.println("Upload gestartet: " + currentUploadName);
-
-        File file = SPIFFS.open(currentUploadName, "w");
-        if (!file) {
-            Serial.println("Fehler beim Öffnen der Datei zum Schreiben!");
-            sendError(500, "Fehler beim Öffnen der Datei");
-            return;
-        }
-        file.close();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-        File file = SPIFFS.open(currentUploadName, "a");
-        if (file) {
-            file.write(upload.buf, upload.currentSize);
-            file.close();
-        }
-    } else if (upload.status == UPLOAD_FILE_END) {
-        Serial.println("Upload beendet: " + currentUploadName + " (" + String(upload.totalSize) + " Bytes)");
-        if (upload.totalSize == 0) {
-            SPIFFS.remove(currentUploadName); // Entferne leere Dateien
-            Serial.println("Leere Datei entfernt: " + currentUploadName);
-        }
-    } else {
-        server.send(500, "text/plain", "Fehler beim Hochladen!");
-    }
-}*/
-
-void WebServerHandler::handleFileUpload() {
-    HTTPUpload& upload = server.upload();
-
-    if (upload.status == UPLOAD_FILE_START) {
-        currentUploadName = upload.filename;
-        if (currentUploadName.isEmpty()) {
-            sdLogger.logError("Kein Dateiname angegeben, Upload abgebrochen.");
-            sendError(400, "Kein Dateiname angegeben");
-            return;
-        }
-        if (!currentUploadName.startsWith("/")) {
-            currentUploadName = "/" + currentUploadName;
-        }
-        sdLogger.logInfo("Upload gestartet: " + currentUploadName);
-
-        // Öffne die Datei auf der SD-Karte
-        File file = SD.open(currentUploadName, FILE_WRITE);
-        if (!file) {
-            sdLogger.logError("Fehler beim Öffnen der Datei auf der SD-Karte zum Schreiben!");
-            sendError(500, "Fehler beim Öffnen der Datei");
-            return;
-        }
-        file.close();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-        // Schreibe Daten in die Datei auf der SD-Karte
-        File file = SD.open(currentUploadName, FILE_APPEND);
-        if (file) {
-            file.write(upload.buf, upload.currentSize);
-            file.close();
-        }
-    } else if (upload.status == UPLOAD_FILE_END) {
-        sdLogger.logInfo("Upload beendet: " + currentUploadName + " (" + String(upload.totalSize) + " Bytes)");
-        if (upload.totalSize == 0) {
-            SD.remove(currentUploadName); // Entferne leere Dateien
-            sdLogger.logInfo("Leere Datei entfernt: " + currentUploadName);
-        }
-    } else {
-        server.send(500, "text/plain", "Fehler beim Hochladen!");
-    }
-}
-
-void WebServerHandler::handleUpload() {
-    server.sendHeader("Location", "/files.html?uploaded=true");
-    server.send(303); // Browser wird umgeleitet
-}
-
-bool WebServerHandler::saveToSPIFFS(const String& fileName, const String& content) {
-    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
-        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
-        return false;
-    }
-
-    File file = SPIFFS.open(fileName, "w");
-    if (!file) {
-        sdLogger.logError("Fehler beim Öffnen der Datei zum Schreiben: " + fileName);
-        return false;
-    }
-
-    if (file.print(content)) {
-        sdLogger.logInfo("Daten erfolgreich in Datei gespeichert: " + fileName);
-    } else {
-        sdLogger.logError("Fehler beim Schreiben in Datei: " + fileName);
-        file.close();
-        return false;
-    }
-
-    file.close();
-    return true;
-}
-
-String WebServerHandler::loadFromSPIFFS(const String& fileName) {
-    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
-        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
-        return "";
-    }
-
-    File file = SPIFFS.open(fileName, "r");
-    if (!file) {
-        sdLogger.logError("Fehler beim Öffnen der Datei zum Lesen: " + fileName);
-        return "";
-    }
-
-    String content = file.readString(); // Liest den gesamten Inhalt der Datei
-    file.close();
-
-    sdLogger.logInfo("Daten erfolgreich aus Datei geladen: " + fileName);
-    return content;
 }
 
 extern INA219Manager ina1;
@@ -997,24 +910,110 @@ void WebServerHandler::handleSensorAPI() {
 
     // Battery-Werte
     float Battery_voltage = battery.getSmoothedVoltage();           // in Volt
-    float mA = battery.getSmoothedCurrent();
-    if (mA < 0) {
-       mA = fabs(mA);
-    }
-    float Battery_current_mA = mA;          // in Milliampere
-    float Battery_current_A = Battery_current_mA / 1000.0;    // in Ampere
-    float Battery_power = ina2.getBusPower_mW();              // in Watt
+    float Battery_current_mA = battery.getCurrentSigned();        // Vorzeichen beibehalten für Ladeerkennung
+    float Battery_current_A = Battery_current_mA / 1000.0;          // in Ampere
+    float Battery_power = battery.getPower();                    // in Watt
 
     // Zusätzliche Werte: Batterieprozentsatz und verbleibende Zeit
     int batteryPercentage = battery.calculateSOC(Battery_voltage);
     float remainingTime = battery.calculateRemainingTime();
+    float chargingTime = battery.calculateChargingTime(ina2.getCurrent_mA());
 
     char json[512]; // Erhöhe die Größe, um Platz für die zusätzlichen Werte zu schaffen
     snprintf(json, sizeof(json),
          "{\"temperatur\":%.1f,\"luftfeuchtigkeit\":%.1f,\"druck\":%.1f,\"minTemperatur\":%.1f,\"maxTemperatur\":%.1f,\"spannung\":%.2f,\"stromstärke\":%.2f,\"leistung\":%.2f,\"helligkeit\":%.1f,"
-         "\"battery_spannung\":%.2f,\"battery_stromstärke_mA\":%.2f,\"battery_stromstärke_A\":%.2f,\"battery_leistung\":%.2f,\"battery_prozent\":%d,\"remaining_time\":%.2f}",
+         "\"battery_spannung\":%.2f,\"battery_stromstärke_mA\":%.2f,\"battery_stromstärke_A\":%.2f,\"battery_leistung\":%.2f,\"battery_prozent\":%d,\"remaining_time\":%.2f,\"charging_time\":%.2f}",
          temp, hum, pres, minTemp, maxTemp, voltage, current_mA, power, lux,
-         Battery_voltage, Battery_current_mA, Battery_current_A, Battery_power, batteryPercentage, remainingTime);
+         Battery_voltage, Battery_current_mA, Battery_current_A, Battery_power, batteryPercentage, remainingTime, chargingTime);
          
     server.send(200, "application/json", json);
+}
+
+void WebServerHandler::handleFileUpload() {
+    HTTPUpload& upload = server.upload();
+
+    if (upload.status == UPLOAD_FILE_START) {
+        currentUploadName = upload.filename;
+        if (currentUploadName.isEmpty()) {
+            sdLogger.logError("Kein Dateiname angegeben, Upload abgebrochen.");
+            sendError(400, "Kein Dateiname angegeben");
+            return;
+        }
+        if (!currentUploadName.startsWith("/")) {
+            currentUploadName = "/" + currentUploadName;
+        }
+        sdLogger.logInfo("Upload gestartet: " + currentUploadName);
+
+        // Öffne die Datei auf der SD-Karte
+        File file = SD.open(currentUploadName, FILE_WRITE);
+        if (!file) {
+            sdLogger.logError("Fehler beim Öffnen der Datei auf der SD-Karte zum Schreiben!");
+            sendError(500, "Fehler beim Öffnen der Datei");
+            return;
+        }
+        file.close();
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        // Schreibe Daten in die Datei auf der SD-Karte
+        File file = SD.open(currentUploadName, FILE_APPEND);
+        if (file) {
+            file.write(upload.buf, upload.currentSize);
+            file.close();
+        }
+    } else if (upload.status == UPLOAD_FILE_END) {
+        sdLogger.logInfo("Upload beendet: " + currentUploadName + " (" + String(upload.totalSize) + " Bytes)");
+        if (upload.totalSize == 0) {
+            SD.remove(currentUploadName); // Entferne leere Dateien
+            sdLogger.logInfo("Leere Datei entfernt: " + currentUploadName);
+        }
+    } else {
+        server.send(500, "text/plain", "Fehler beim Hochladen!");
+    }
+}
+
+void WebServerHandler::handleUpload() {
+    server.sendHeader("Location", "/app.html#files?uploaded=true");
+    server.send(303);
+}
+
+bool WebServerHandler::saveToSPIFFS(const String& fileName, const String& content) {
+    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
+        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
+        return false;
+    }
+
+    File file = SPIFFS.open(fileName, "w");
+    if (!file) {
+        sdLogger.logError("Fehler beim Öffnen der Datei zum Schreiben: " + fileName);
+        return false;
+    }
+
+    if (file.print(content)) {
+        sdLogger.logInfo("Daten erfolgreich in Datei gespeichert: " + fileName);
+    } else {
+        sdLogger.logError("Fehler beim Schreiben in Datei: " + fileName);
+        file.close();
+        return false;
+    }
+
+    file.close();
+    return true;
+}
+
+String WebServerHandler::loadFromSPIFFS(const String& fileName) {
+    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
+        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
+        return "";
+    }
+
+    File file = SPIFFS.open(fileName, "r");
+    if (!file) {
+        sdLogger.logError("Fehler beim Öffnen der Datei zum Lesen: " + fileName);
+        return "";
+    }
+
+    String content = file.readString(); // Liest den gesamten Inhalt der Datei
+    file.close();
+
+    sdLogger.logInfo("Daten erfolgreich aus Datei geladen: " + fileName);
+    return content;
 }

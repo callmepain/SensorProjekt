@@ -16,6 +16,10 @@
 #include <SPI.h>
 #include <SD.h>
 #include "SDCardLogger.h"
+#include <esp_task_wdt.h>
+#include <esp_system.h>
+#include <esp_debug_helpers.h>
+#include <esp_private/panic_reason.h>
 
 
 #define SD_CS 5 // Pin für CS
@@ -28,7 +32,7 @@ ConfigManager configManager;  // Konfigurationsmanager erstellen
 SensorHandler sensorHandler(bme);
 SDCardLogger sdLogger("/system.log", SD_CS);
 WebServerHandler webServerHandler(sensorHandler, sdLogger);
-Battery battery(3400, "/battery_data.json", sdLogger);
+Battery battery(3680, "/battery_data.json", sdLogger, 0.03);
 
 float totalEnergy_ina1 = 0.0;
 float totalEnergy_ina2 = 0.0;
@@ -38,6 +42,35 @@ const unsigned long updateInterval = 1000; // 1 Sekunde
 unsigned long lastSwitchTime = 0; // Zeitstempel des letzten Wechsels
 bool showPower = true;           // Zustand: true = Leistung, false = Gesamtenergie
 unsigned long lastEnergyUpdateTime = 0; // Zeitstempel für Energieberechnung
+
+// Globale Variable für den Reconnect-Status
+static bool isReconnecting = false;
+
+// Globale Variable für die Startzeit
+static unsigned long startupTime;
+
+void logCrashData(const char* reason) {
+    uint32_t resetReason = esp_reset_reason();
+    String resetReasonStr;
+    
+    switch(resetReason) {
+        case ESP_RST_POWERON: resetReasonStr = "Power-on"; break;
+        case ESP_RST_SW: resetReasonStr = "Software reset"; break;
+        case ESP_RST_PANIC: resetReasonStr = "Panic reset"; break;
+        case ESP_RST_INT_WDT: resetReasonStr = "Interrupt watchdog"; break;
+        case ESP_RST_TASK_WDT: resetReasonStr = "Task watchdog"; break;
+        case ESP_RST_WDT: resetReasonStr = "Other watchdog"; break;
+        case ESP_RST_DEEPSLEEP: resetReasonStr = "Deep sleep"; break;
+        case ESP_RST_BROWNOUT: resetReasonStr = "Brownout"; break;
+        default: resetReasonStr = "Unknown"; break;
+    }
+    
+    sdLogger.logError("System Reset - Grund: " + resetReasonStr);
+    sdLogger.logError("Auslöser: " + String(reason));
+    sdLogger.logError("Free heap: " + String(ESP.getFreeHeap()));
+    sdLogger.logError("Min free heap: " + String(ESP.getMinFreeHeap()));
+    sdLogger.logError("Max alloc heap: " + String(ESP.getMaxAllocHeap()));
+}
 
 void connectToWiFi() {
     Config& config = configManager.getConfig();
@@ -69,8 +102,17 @@ void connectToWiFi() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(config.wifi_ssid, config.wifi_password);
 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
+    // Timeout hinzufügen
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // Max 10 Sekunden warten
+        delay(100);
+        attempts++;
+        Serial.print(".");
+    }
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("\nWiFi-Verbindung fehlgeschlagen!");
+        return;
     }
 
     WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
@@ -228,11 +270,6 @@ void drawIna2() {
         display.print(fabs(current_mA)); 
         display.print(" mA");
 
-        // Beispiel: Korrigierte Spannung anzeigen
-        // Problem: Während das Ladegerät (Netzteil) angeschlossen ist, liegt oft eine höhere Spannung an.
-        // Lösung: Einen Korrekturfaktor anwenden oder erst nach Abziehen des Ladegeräts (ggf. mit einer kurzen Wartezeit)
-        // die gemessene "Leerlaufspannung" übernehmen.
-        // Hier im Beispiel wird einfach ein statischer Korrekturfaktor angewandt:
         float adjustedVoltage = smoothedVoltage * 0.95; // Korrekturfaktor anpassen!
         display.setCursor(0, 30);
         display.print("Ladespannung: "); 
@@ -467,28 +504,70 @@ void handleCurrentViewUpdate() {
 // Deklaration unserer Task-Funktion
 void WebHandlingTask(void *pvParameters) {
     while (true) {
-        // Watchdog füttern
-        vTaskDelay(pdMS_TO_TICKS(10));
         webServerHandler.handleClient(); 
-        // Mehr Zeit für andere Tasks
-        vTaskDelay(pdMS_TO_TICKS(20)); 
+        vTaskDelay(pdMS_TO_TICKS(5));  // Minimales Delay für Task-Switching
     }
 }
 
 void menuTask(void *parameter) {
     for (;;) {
-        // Watchdog füttern
-        vTaskDelay(pdMS_TO_TICKS(10));
-        handleMenuNavigation();
-        handleCurrentViewUpdate();
-        // Mehr Zeit für andere Tasks
-        vTaskDelay(pdMS_TO_TICKS(20));
+        // Nur Menu-Updates durchführen wenn Display an ist
+        if (getDisplayState()) {
+            handleMenuNavigation();
+            handleCurrentViewUpdate();
+        } else {
+            // Längere Pause wenn Display aus ist, um CPU zu sparen
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));  // Minimales Delay für Task-Switching
     }
 }
 
-// -----------------------------------------------------
-// SETUP & LOOP
-// -----------------------------------------------------
+// WiFi Task mit Callback für abhängige Initialisierungen
+void connectWiFiTask(void * parameter) {
+    Serial.println("WiFi Task gestartet");
+    connectToWiFi();
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("WiFi-abhängige Initialisierungen abgeschlossen");
+    }
+    
+    isReconnecting = false;
+    vTaskDelete(NULL);
+}
+
+void checkAndReconnectWiFi() {
+    static unsigned long lastWiFiCheck = 0;
+    static bool servicesInitialized = false;
+    unsigned long currentMillis = millis();
+    
+    if (currentMillis - lastWiFiCheck >= 30000) {
+        lastWiFiCheck = currentMillis;
+        if (WiFi.status() == WL_CONNECTED && !servicesInitialized) {
+            // Initialisiere Dienste nach erfolgreicher Verbindung
+            syncNTP();
+            webServerHandler.init();
+            servicesInitialized = true;
+            sdLogger.logInfo("WiFi-Dienste initialisiert");
+        } else if (WiFi.status() != WL_CONNECTED) {
+            servicesInitialized = false;
+            if (!isReconnecting) {
+                String message = "WiFi-Verbindung verloren. Versuche Neuverbindung...";
+                sdLogger.logWarning(message);
+                isReconnecting = true;
+                xTaskCreate(
+                    connectWiFiTask,
+                    "WiFiReconnect",
+                    4096,
+                    NULL,
+                    1,
+                    NULL
+                );
+            }
+        }
+    }
+}
+
 void initConfigManager() {
     if (!configManager.begin()) {
         sdLogger.logInfo("Fehler beim Initialisieren des Config-Managers. Verwende Standardwerte...");
@@ -534,10 +613,11 @@ void initSensors() {
     Wire.begin(I2C_SDA, I2C_SCL);
     initDisplay();
     sensorHandler.init();
+    
     if (!ina1.begin() || !ina2.begin() || !ina3.begin()) {
         sdLogger.logInfo("INA konnte nicht initialisiert werden!");
+        Serial.println("INA Fehler!");
     }
-    
 
     ina1.setADCMode(SAMPLE_MODE_4);
     ina1.setPGain(PG_40);
@@ -559,8 +639,6 @@ void initSensors() {
         sdLogger.logInfo("GY-302 konnte nicht initialisiert werden!");
     }
     lightSensor.startSampling(200);
-    sdLogger.logInfo("GY-302 gestartet.");
-
 }
 
 void initButtons() {
@@ -593,91 +671,95 @@ void initTasks() {
 }
 
 void setup() {
-    Serial.begin(115200);
-
+    // Watchdog für Setup aktivieren
+    esp_task_wdt_init(30, true); // 30 Sekunden Timeout
+    esp_task_wdt_add(NULL);
+    
+    startupTime = millis();
+    logCrashData("Setup started");
+    
     if (!SD.begin(SD_CS)) {
         sdLogger.logError("SD-Karte konnte nicht initialisiert werden.");
+        Serial.println("SD-Karte Fehler!");
         return;
     }
-    sdLogger.logInfo("SD-Karte erfolgreich initialisiert.");
-
-    setCpuFrequencyMhz(80);
-    sdLogger.logInfo("CPU-Takt auf 80 MHz reduziert.");
 
     if (!sdLogger.begin()) {
         sdLogger.logError("SD-Karten-Logger konnte nicht initialisiert werden.");
+        Serial.println("Logger Fehler!");
         return;
     }
-    sdLogger.logInfo("System gestartet");
 
     initConfigManager();
     initSPIFFS();
     initSensors();
+
+    // WiFi-Verbindung in separatem Task starten
+    xTaskCreate(
+        connectWiFiTask,
+        "WiFiConnect",
+        4096,
+        NULL,
+        1,
+        NULL
+    );
+
+    // Nicht-WiFi-abhängige Initialisierungen
+    setCpuFrequencyMhz(80);
+    sdLogger.logInfo("System gestartet");
     initDisplay();
     initButtons();
-    connectToWiFi();
-    syncNTP();
-    webServerHandler.init();
-    telnetServer.begin();
-    telnetServer.setNoDelay(true);
     mainMenu.draw();
     initTasks();
 
     // GPIO 17 als Ausgang definieren
     pinMode(17, OUTPUT);
-
-    // Standardzustand setzen (z.B. aus)
     digitalWrite(17, LOW);
 
-    // Heap-Größe überprüfen und loggen
-    String heapMessage = "Freier Heap: " + String(ESP.getFreeHeap()) + " Bytes";
-    String blockMessage = "Größter freier Heap-Block: " + String(ESP.getMaxAllocHeap()) + " Bytes";
-    sdLogger.logInfo(heapMessage);
-    sdLogger.logInfo(blockMessage);
-}
+    unsigned long setupDuration = millis() - startupTime;
+    Serial.printf("Setup fertig nach %lu ms\n", setupDuration);
+    sdLogger.logInfo("Setup-Zeit: " + String(setupDuration) + "ms");
 
-void checkAndReconnectWiFi() {
-    static unsigned long lastWiFiCheck = 0;
-    unsigned long currentMillis = millis();
-    
-    if (currentMillis - lastWiFiCheck >= 30000) {  // Alle 30 Sekunden
-        lastWiFiCheck = currentMillis;
-        if (WiFi.status() != WL_CONNECTED) {
-            String message = "WiFi-Verbindung verloren. Versuche Neuverbindung...";
-            sdLogger.logWarning(message);
-            WiFi.disconnect();
-            delay(1000);
-            connectToWiFi();
-        }
-    }
+    // Watchdog für Setup deaktivieren
+    esp_task_wdt_delete(NULL);
 }
 
 void loop() {
-    static unsigned long lastHeapCheck = 0;
-    unsigned long currentMillis = millis();
-    
-    if (currentMillis - lastHeapCheck >= 30000) {  // Alle 30 Sekunden
-        lastHeapCheck = currentMillis;
-        String heapMessage = "Freier Heap: " + String(ESP.getFreeHeap()) + " Bytes";
-        sdLogger.logInfo(heapMessage);
-        
-        // Zusätzliche System-Informationen loggen
-        String uptimeMessage = "Uptime: " + String(millis() / 1000) + " Sekunden";
-        String wifiMessage = "WiFi RSSI: " + String(WiFi.RSSI()) + " dBm";
-        sdLogger.logInfo(uptimeMessage);
-        sdLogger.logInfo(wifiMessage);
-    }
-
     static bool test = true;
     if (!test) {
         TestI2C();
         test = true;
     }
+    
     sensorHandler.updateSensors();
     totalEnergy_ina1 = ina1.updateEnergy();
     totalEnergy_ina2 = ina2.updateEnergy();
-    // Kurzes Debouncing
-    delay(100);
-
+    
+    // Kurze Pause für andere Tasks
+    vTaskDelay(pdMS_TO_TICKS(5));  // 5ms Pause statt yield()
+    
     checkAndReconnectWiFi();
+
+    static unsigned long lastWatchdogReset = 0;
+    static unsigned long lastHeapCheck = 0;
+    
+    // Heap-Überwachung alle 5 Minuten
+    if (millis() - lastHeapCheck > 300000) {
+        lastHeapCheck = millis();
+        if (ESP.getFreeHeap() < 10000) { // Weniger als 10KB frei
+            sdLogger.logWarning("Kritisch niedriger Heap: " + String(ESP.getFreeHeap()) + " bytes");
+        }
+    }
+    
+    // Watchdog alle 5 Sekunden zurücksetzen
+    if (millis() - lastWatchdogReset > 5000) {
+        lastWatchdogReset = millis();
+        esp_task_wdt_reset();
+    }
+}
+
+// Crash-Handler hinzufügen
+void IRAM_ATTR resetModule() {
+    sdLogger.logError("Watchdog ausgelöst - System wird neu gestartet");
+    esp_restart();
 }
