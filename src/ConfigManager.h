@@ -2,7 +2,7 @@
 #define CONFIG_MANAGER_H
 
 #include <FS.h>
-#include <SPIFFS.h>
+#include <SD.h>  // Füge SD-Karten-Unterstützung hinzu
 #include <ArduinoJson.h>
 
 struct Config {
@@ -24,28 +24,28 @@ struct Config {
 
 class ConfigManager {
 private:
-    const char* configFilePath = "/config2.json";  // Standardpfad für die Config-Datei
+    const char* configFilePath = "/config2.json";  // Pfad auf der SD-Karte
     Config config;
 
 public:
     // Konstruktor
     ConfigManager() {}
 
-    // Initialisiert SPIFFS und lädt die Konfiguration
+    // Initialisiert SD-Karte und lädt die Konfiguration
     bool begin();
 
     void printConfig();
 
-    // Lädt die Konfiguration aus SPIFFS
+    // Lädt die Konfiguration von der SD-Karte
     bool loadConfig();
 
-    // Speichert die aktuelle Konfiguration in SPIFFS
+    // Speichert die aktuelle Konfiguration auf der SD-Karte
     bool saveConfig();
 
     // Gibt einen Verweis auf die Konfigurationsdaten zurück
     Config& getConfig();
 
-    // Debugging: Listet Dateien im SPIFFS auf
+    // Debugging: Listet Dateien auf der SD-Karte auf
     void listFiles();
 };
 

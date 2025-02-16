@@ -26,8 +26,8 @@ public:
     void handleDownloadFile();
     void handleUpload();
     void handleFileUpload();
-    bool saveToSPIFFS(const String& fileName, const String& content);
-    String loadFromSPIFFS(const String& fileName);
+    bool saveToSD(const String& fileName, const String& content);
+    String loadFromSD(const String& fileName);
 
     // HTML-Seiten
     void handleUploadPage();
@@ -47,12 +47,10 @@ private:
     int calculateBatteryPercentageWithSamples(const std::vector<float>& voltageSamples);
     float calculateRemainingTime(float voltage, float current_mA, int batteryCapacity_mAh);
     String getContentType(const String& path);
-    bool streamFileFromSPIFFS(const String& path, const char* contentType);
     bool streamFileFromSD(const String& path, const char* contentType);
     void listDirectory(File dir, String path, String& json, bool& firstEntry);
 
     // Hilfsfunktionen
-    File openFile(String path, const char* mode);
     void sendError(int code, String message);
     String escapeJsonString(const String& input);
     void createDirectoryPath(fs::FS &fs, String path);

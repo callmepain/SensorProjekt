@@ -2,6 +2,11 @@
 
 float minTemp = NAN; // Initialisiere globale Variablen
 float maxTemp = NAN;
+SDCardLogger* logger = nullptr;  // Initialisiere den Logger-Pointer
+
+void initMinMaxStorage(SDCardLogger* sdLogger) {
+    logger = sdLogger;
+}
 
 void saveMinMaxToJson() {
     // JSON-Objekt erstellen
@@ -10,16 +15,16 @@ void saveMinMaxToJson() {
     jsonDoc["maxTemp"] = maxTemp;
 
     // JSON in Datei schreiben
-    File file = SPIFFS.open("/min_max.json", FILE_WRITE);
+    File file = SD.open("/min_max.json", FILE_WRITE);
     if (!file) {
-        Serial.println("Fehler beim Öffnen der Datei zum Schreiben!");
+        if (logger) logger->logError("Fehler beim Öffnen der min_max.json zum Schreiben!");
         return;
     }
 
     if (serializeJson(jsonDoc, file) == 0) {
-        Serial.println("Fehler beim Schreiben in die JSON-Datei!");
+        if (logger) logger->logError("Fehler beim Schreiben in die min_max.json!");
     } else {
-        Serial.println("Min/Max-Temperaturen gespeichert.");
+        if (logger) logger->logInfo("Min/Max-Temperaturen gespeichert.");
     }
 
     file.close();
@@ -30,13 +35,14 @@ void resetMinMaxValues() {
     maxTemp = NAN;
 
     saveMinMaxToJson();
+    if (logger) logger->logInfo("Min/Max-Werte zurückgesetzt.");
 }
 
 void loadMinMaxFromJson() {
     // Datei öffnen
-    File file = SPIFFS.open("/min_max.json", FILE_READ);
+    File file = SD.open("/min_max.json", FILE_READ);
     if (!file) {
-        Serial.println("JSON-Datei nicht gefunden, starte mit neuen Werten.");
+        if (logger) logger->logWarning("min_max.json nicht gefunden, starte mit neuen Werten.");
         minTemp = NAN;
         maxTemp = NAN;
         return;
@@ -46,7 +52,7 @@ void loadMinMaxFromJson() {
     JsonDocument jsonDoc;
     DeserializationError error = deserializeJson(jsonDoc, file);
     if (error) {
-        Serial.println("Fehler beim Lesen der JSON-Datei.");
+        if (logger) logger->logError("Fehler beim Lesen der min_max.json: " + String(error.c_str()));
         file.close();
         return;
     }
@@ -55,10 +61,10 @@ void loadMinMaxFromJson() {
     minTemp = jsonDoc["minTemp"] | NAN;
     maxTemp = jsonDoc["maxTemp"] | NAN;
 
-    Serial.print("Geladene Min-Temp: ");
-    Serial.println(minTemp);
-    Serial.print("Geladene Max-Temp: ");
-    Serial.println(maxTemp);
+    if (logger) {
+        logger->logInfo("Geladene Min-Temp: " + String(minTemp));
+        logger->logInfo("Geladene Max-Temp: " + String(maxTemp));
+    }
 
     file.close();
 }

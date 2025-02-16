@@ -138,7 +138,7 @@ async function getSensorData() {
         updateValue('current', data.stromstärke + ' mA');
         updateValue('power', data.leistung + ' mW');
         updateValue('lux', data.helligkeit + ' lx');
-        drawGauge('luxGauge', data.helligkeit, 1000, 'Lux', 0, 0, 'lx', 0);
+        drawGauge('luxGauge', data.helligkeit, 4000, 'Lux', 0, 0, 'lx', 0);
         updateValue('batteryVoltage', data.battery_spannung + ' V');
         updateValue('batteryCurrent', data.battery_stromstärke_mA + ' mA');
         updateValue('batteryPower', data.battery_leistung + ' mW');
@@ -806,6 +806,7 @@ function calculateTickInterval(maxValue, range) {
     if (range <= 200) return 10;
     if (range <= 1000) return 200;
     if (range <= 1500) return 300;
+    if (range <= 4000) return 500;
     return Math.ceil(range / 10);
 }
 
@@ -1001,5 +1002,83 @@ async function checkDisplayState() {
         }
     } catch (error) {
         console.error('Fehler beim Abrufen des Display-Status:', error);
+    }
+}
+
+async function restartESP() {
+    if (confirm('Möchten Sie den ESP32 wirklich neustarten?')) {
+        try {
+            const response = await fetch('/api/restart', { method: 'POST' });
+            if (response.ok) {
+                showMessage('ESP32 wird neugestartet...');
+                // Warte 5 Sekunden und lade dann die Seite neu
+                setTimeout(() => {
+                    location.reload();
+                }, 5000);
+            } else {
+                showMessage('Fehler beim Neustarten des ESP32', true);
+            }
+        } catch (error) {
+            console.error('Fehler:', error);
+            showMessage('Fehler beim Neustarten des ESP32', true);
+        }
+    }
+}
+
+async function editFile(fileName) {
+    try {
+        // Lade den Dateiinhalt
+        const response = await fetch(`/api/file?name=${encodeURIComponent(fileName)}`);
+        if (!response.ok) throw new Error('Fehler beim Laden der Datei');
+        const content = await response.text();
+
+        // Erstelle einen modalen Dialog für die Bearbeitung
+        const modal = document.createElement('div');
+        modal.className = 'edit-modal';
+        modal.innerHTML = `
+            <div class="edit-modal-content">
+                <h2>Datei bearbeiten: ${fileName}</h2>
+                <textarea id="file-editor">${content}</textarea>
+                <div class="edit-modal-buttons">
+                    <button onclick="saveFile('${fileName}')" class="save-button">Speichern</button>
+                    <button onclick="closeEditModal()" class="cancel-button">Abbrechen</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        showMessage('Fehler: ' + error.message, true);
+    }
+}
+
+async function saveFile(fileName) {
+    try {
+        const content = document.getElementById('file-editor').value;
+        const response = await fetch('/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: fileName,
+                content: content
+            })
+        });
+
+        if (!response.ok) throw new Error('Fehler beim Speichern');
+        
+        closeEditModal();
+        showMessage('Datei erfolgreich gespeichert');
+        // Aktualisiere die Dateiliste
+        initFiles();
+    } catch (error) {
+        showMessage('Fehler beim Speichern: ' + error.message, true);
+    }
+}
+
+function closeEditModal() {
+    const modal = document.querySelector('.edit-modal');
+    if (modal) {
+        modal.remove();
     }
 } 

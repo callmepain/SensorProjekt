@@ -42,7 +42,7 @@ void Battery::saveToJson(float energy) {
     JsonDocument doc;  // oder größer je nach Bedarf
     doc["totalEnergy"] = energy;
 
-    File file = SPIFFS.open(filePath, FILE_WRITE);
+    File file = SD.open(filePath, FILE_WRITE);
     if (!file) {
         sdLogger.logError("Fehler beim Öffnen der Datei zum Schreiben");
         return;
@@ -56,7 +56,7 @@ void Battery::saveToJson(float energy) {
 
 // JSON-Datei laden
 void Battery::loadFromJson() {
-    File file = SPIFFS.open(filePath, FILE_READ);
+    File file = SD.open(filePath, FILE_READ);
     if (!file) {
         sdLogger.logError("Fehler beim Öffnen der Datei zum Lesen");
         return;

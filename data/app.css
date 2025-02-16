@@ -1199,4 +1199,91 @@ button:active {
     align-items: center;
     justify-content: center;
     gap: 10px;
+}
+
+.restart-button {
+    background: linear-gradient(90deg, #FF4500, #FF0000);
+    color: white;
+    border: none;
+    font-weight: bold;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+.restart-button:hover {
+    background: linear-gradient(90deg, #FF6600, #FF0000);
+    box-shadow: 0 4px 15px rgba(255, 69, 0, 0.5);
+}
+
+.edit-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.edit-modal-content {
+    background: #1E1E1E;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #FF00FF;
+    width: 80%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.edit-modal-content h2 {
+    margin: 0;
+    color: #FFFFFF;
+    text-align: center;
+}
+
+#file-editor {
+    width: 100%;
+    height: 60vh;
+    background: #2A2A2A;
+    color: #FFFFFF;
+    border: 1px solid #FF00FF;
+    border-radius: 5px;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    resize: vertical;
+}
+
+.edit-modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.save-button {
+    background: linear-gradient(90deg, #00FF00, #008800);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.cancel-button {
+    background: linear-gradient(90deg, #FF0000, #880000);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.save-button:hover, .cancel-button:hover {
+    filter: brightness(1.2);
 } 

@@ -31,16 +31,6 @@ String WebServerHandler::getContentType(const String& path) {
     return "application/octet-stream"; // Fallback für unbekannte Typen
 }
 
-bool WebServerHandler::streamFileFromSPIFFS(const String& path, const char* contentType) {
-    File file = openFile(path, "r");
-    if (!file) {
-        return false; // Datei nicht gefunden
-    }
-    server.streamFile(file, contentType);
-    file.close();
-    return true; // Erfolgreich gestreamt
-}
-
 bool WebServerHandler::streamFileFromSD(const String& path, const char* contentType) {
     // Öffne die Datei auf der SD-Karte
     File file = SD.open(path, FILE_READ);
@@ -55,26 +45,22 @@ bool WebServerHandler::streamFileFromSD(const String& path, const char* contentT
 }
 
 void WebServerHandler::init() {
-    server.onNotFound([this]() {
-        String path = server.uri(); // Der angeforderte Dateipfad
-        if (path.endsWith("/")) {
-            path += "index.html"; // Standard-Datei für Verzeichnisse
-        }
+    server.on("/api/status", HTTP_GET, [this]() {
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+    });
 
-        // Bestimme den Content-Type basierend auf der Dateierweiterung
+    server.onNotFound([this]() {
+        String path = server.uri();
+        if (path.endsWith("/")) {
+            path += "index.html";
+        }
         String contentType = getContentType(path);
 
-        // Versuche, die Datei von der SD-Karte zu streamen
+        // Versuche nur noch von SD-Karte zu streamen
         if (this->streamFileFromSD(path, contentType.c_str())) {
-            return; // Erfolgreich von SD gestreamt
+            return;
         }
 
-        // Versuche, die Datei aus SPIFFS zu streamen
-        if (this->streamFileFromSPIFFS(path, contentType.c_str())) {
-            return; // Erfolgreich aus SPIFFS gestreamt
-        }
-
-        // Wenn die Datei weder in SPIFFS noch auf der SD-Karte gefunden wurde
         this->sendError(404, "Datei nicht gefunden: " + path);
     });
 
@@ -264,7 +250,7 @@ void WebServerHandler::init() {
     });
 
     server.on("/edit", HTTP_GET, [this]() {
-        this->streamFileFromSPIFFS("/edit.html", "text/html");
+        this->streamFileFromSD("/edit.html", "text/html");
     });
 
     server.on("/save", HTTP_POST, std::bind(&WebServerHandler::handleSaveFile, this));
@@ -290,7 +276,7 @@ void WebServerHandler::init() {
 
         // Konfiguration speichern
         String fileName = "/config2.json";
-        if (saveToSPIFFS(fileName, body)) {
+        if (saveToSD(fileName, body)) {
             server.send(200, "application/json", "{\"message\":\"Configuration saved successfully\"}");
         } else {
             server.send(500, "application/json", "{\"error\":\"Failed to save configuration\"}");
@@ -299,7 +285,7 @@ void WebServerHandler::init() {
 
     server.on("/api/loadConfig", HTTP_GET, [this]() {
         String fileName = "/config2.json"; // Standarddateiname für die Konfiguration
-        String content = loadFromSPIFFS(fileName);
+        String content = loadFromSD(fileName);
 
         if (content != "") {
             server.send(200, "application/json", content);
@@ -344,6 +330,14 @@ void WebServerHandler::init() {
             "{\"display_state\":\"" + String(state ? "on" : "off") + "\"}");
     });
 
+    // Neustart API-Endpunkt
+    server.on("/api/restart", HTTP_POST, [this]() {
+        server.send(200, "application/json", "{\"message\":\"ESP32 wird neugestartet...\"}");
+        sdLogger.logInfo("ESP32 Neustart durch Web-API ausgelöst");
+        delay(500); // Kurze Verzögerung, damit die Antwort gesendet werden kann
+        ESP.restart();
+    });
+
     server.begin();
     sdLogger.logInfo("Webserver gestartet!");
 }
@@ -351,17 +345,6 @@ void WebServerHandler::init() {
 void WebServerHandler::sendError(int code, String message) {
     server.send(code, "text/plain", message);
     sdLogger.logError(message);
-}
-
-File WebServerHandler::openFile(String path, const char* mode) {
-    if (!path.startsWith("/")) {
-        path = "/" + path;
-    }
-    File file = SPIFFS.open(path, mode);
-    if (!file) {
-        sdLogger.logError("Datei nicht gefunden: " + path);
-    }
-    return file;
 }
 
 void WebServerHandler::handleClient() {
@@ -975,13 +958,8 @@ void WebServerHandler::handleUpload() {
     server.send(303);
 }
 
-bool WebServerHandler::saveToSPIFFS(const String& fileName, const String& content) {
-    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
-        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
-        return false;
-    }
-
-    File file = SPIFFS.open(fileName, "w");
+bool WebServerHandler::saveToSD(const String& fileName, const String& content) {
+    File file = SD.open(fileName, "w");
     if (!file) {
         sdLogger.logError("Fehler beim Öffnen der Datei zum Schreiben: " + fileName);
         return false;
@@ -999,13 +977,8 @@ bool WebServerHandler::saveToSPIFFS(const String& fileName, const String& conten
     return true;
 }
 
-String WebServerHandler::loadFromSPIFFS(const String& fileName) {
-    if (!SPIFFS.begin(true)) { // Initialisiert SPIFFS, falls nicht bereits geschehen
-        sdLogger.logError("SPIFFS konnte nicht initialisiert werden.");
-        return "";
-    }
-
-    File file = SPIFFS.open(fileName, "r");
+String WebServerHandler::loadFromSD(const String& fileName) {
+    File file = SD.open(fileName, "r");
     if (!file) {
         sdLogger.logError("Fehler beim Öffnen der Datei zum Lesen: " + fileName);
         return "";

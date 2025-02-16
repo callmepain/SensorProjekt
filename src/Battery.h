@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <SPIFFS.h>
+#include <SD.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "SDCardLogger.h"

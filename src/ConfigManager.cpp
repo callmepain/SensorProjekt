@@ -1,17 +1,18 @@
 #include "ConfigManager.h"
 
-// Initialisiert SPIFFS und lädt die Konfiguration
+// Initialisiert SD-Karte und lädt die Konfiguration
 bool ConfigManager::begin() {
-    if (!SPIFFS.begin(true)) {
-        Serial.println("Fehler beim Start von SPIFFS!");
+    if (!SD.begin()) {
+        Serial.println("Fehler beim Start der SD-Karte!");
         return false;
     }
+    Serial.println("SD-Karte erfolgreich initialisiert");
     return loadConfig();
 }
 
-// Lädt die Konfiguration aus SPIFFS
+// Lädt die Konfiguration von der SD-Karte
 bool ConfigManager::loadConfig() {
-    File file = SPIFFS.open(configFilePath, "r");
+    File file = SD.open(configFilePath, FILE_READ);
     if (!file) {
         Serial.println("Konfigurationsdatei nicht gefunden!");
         return false;
@@ -45,9 +46,9 @@ bool ConfigManager::loadConfig() {
     return true;
 }
 
-// Speichert die aktuelle Konfiguration in SPIFFS
+// Speichert die aktuelle Konfiguration auf der SD-Karte
 bool ConfigManager::saveConfig() {
-    File file = SPIFFS.open(configFilePath, "w");
+    File file = SD.open(configFilePath, FILE_WRITE);
     if (!file) {
         Serial.println("Fehler beim Öffnen der Konfigurationsdatei zum Schreiben!");
         return false;
@@ -105,14 +106,23 @@ Config& ConfigManager::getConfig() {
     return config;
 }
 
-// Debugging: Listet alle Dateien im SPIFFS auf
+// Debugging: Listet alle Dateien auf der SD-Karte auf
 void ConfigManager::listFiles() {
-    File root = SPIFFS.open("/");
+    File root = SD.open("/");
+    if (!root) {
+        Serial.println("Fehler beim Öffnen des Stammverzeichnisses!");
+        return;
+    }
+    
     File file = root.openNextFile();
-
     while (file) {
-        Serial.print("Datei: ");
-        Serial.println(file.name());
+        if (!file.isDirectory()) {
+            Serial.print("Datei: ");
+            Serial.print(file.name());
+            Serial.print("  Größe: ");
+            Serial.println(file.size());
+        }
         file = root.openNextFile();
     }
+    root.close();
 }

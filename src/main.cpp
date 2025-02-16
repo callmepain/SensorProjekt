@@ -7,7 +7,7 @@
 #include "MinMaxStorage.h"
 #include "SensorHandler.h"
 #include "WebServerHandler.h"
-#include <SPIFFS.h>
+
 #include "Battery.h"
 #include "DisplayConfig.h"
 #include "ButtonConfig.h"
@@ -590,15 +590,6 @@ void initConfigManager() {
     loadMinMaxFromJson();
 }
 
-void initSPIFFS() {
-    if (!SPIFFS.begin(true)) {
-        sdLogger.logInfo("Fehler beim Initialisieren von SPIFFS");
-        return;
-    }
-    sdLogger.logInfo("SPIFFS erfolgreich gemountet");
-
-}
-
 void initDisplay() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         sdLogger.logInfo("SSD1306 nicht gefunden!");
@@ -689,9 +680,9 @@ void setup() {
         Serial.println("Logger Fehler!");
         return;
     }
+    initMinMaxStorage(&sdLogger);
 
     initConfigManager();
-    initSPIFFS();
     initSensors();
 
     // WiFi-Verbindung in separatem Task starten
